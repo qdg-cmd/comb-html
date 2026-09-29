@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>생기부 시각화 리포트 - 학생A</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* 차분한 베이지 & 브라운 톤 */
+            --bg-color: #FDFBF7;
+            --primary-color: #8C6A50;
+            --primary-light: #A8866C;
+            --secondary-color: #E6DDD6;
+            --secondary-light: #F4EFEB;
+            --text-dark: #332B25;
+            --text-muted: #7A7068;
+            --white: #FFFFFF;
+            --highlight: rgba(140, 106, 80, 0.2);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
+        
+        body { background-color: var(--bg-color); color: var(--text-dark); line-height: 1.6; overflow-y: auto; }
+
+        header {
+            background-color: var(--white); padding: 20px 40px;
+            border-bottom: 2px solid var(--secondary-color);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .title-area h1 { font-size: 22px; color: var(--primary-color); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .title-area h1::before { content: ''; display: inline-block; width: 14px; height: 14px; background: #C4F000; border-radius: 50%; border: 2px solid var(--text-dark); }
+        .title-area p { font-size: 14px; color: var(--text-muted); margin-top: 5px; }
+        .btn-print { background-color: var(--primary-color); color: var(--white); border: none; padding: 10px 20px; border-radius: 20px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-print:hover { background-color: #70543F; }
+
+        .tabs { display: flex; gap: 30px; padding: 0 40px; background-color: var(--white); border-bottom: 1px solid var(--secondary-color); overflow-x: auto; }
+        .tab-btn { background: none; border: none; padding: 15px 0; font-size: 15px; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; white-space: nowrap; }
+        .tab-btn.active { color: var(--text-dark); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background-color: var(--primary-color); }
+
+        main { padding: 40px; max-width: 1600px; margin: 0 auto; min-height: calc(100vh - 150px); height: auto; }
+        .tab-content { display: none; height: auto; animation: fadeIn 0.3s; padding-bottom: 50px; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .section-desc { font-size: 15px; color: var(--text-muted); margin-bottom: 25px; }
+
+        .graph-container { width: 100%; height: 750px; background: var(--white); border-radius: 12px; border: 1px solid var(--secondary-color); box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+
+        .timeline-scroll { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 20px; align-items: flex-start; }
+        .grade-col { flex: 0 0 420px; background: var(--white); border: 1px solid var(--secondary-color); border-radius: 12px; display: flex; flex-direction: column; }
+        .grade-header { background: var(--secondary-light); padding: 15px; text-align: center; font-weight: 700; color: var(--primary-color); border-bottom: 1px solid var(--secondary-color); border-radius: 12px 12px 0 0;}
+        .semester-row { display: flex; flex: 1; }
+        .semester-col { flex: 1; padding: 15px; border-right: 1px dashed var(--secondary-color); }
+        .semester-col:last-child { border-right: none; }
+        .semester-title { font-size: 13px; font-weight: 600; margin-bottom: 15px; color: var(--text-muted); text-align: center; }
+        
+        .act-card { background: var(--white); border: 1px solid var(--secondary-color); padding: 15px; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); line-height: 1.4; }
+        .act-title { font-weight: 600; font-size: 14px; margin-bottom: 10px; color: var(--text-dark); word-break: keep-all;}
+        .tag-wrap { display: flex; gap: 5px; flex-wrap: wrap; }
+        .tag { font-size: 11px; padding: 3px 8px; border-radius: 12px; background: var(--secondary-light); color: var(--text-muted); border: 1px solid var(--secondary-color); }
+
+        .story-container { display: flex; flex-direction: column; gap: 25px; }
+        .story-box { background: var(--white); border: 1px solid var(--secondary-color); border-radius: 12px; padding: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+        .story-title { font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 15px; }
+        .story-ai { background: var(--secondary-light); border-left: 4px solid var(--primary-color); padding: 15px; border-radius: 0 8px 8px 0; margin-bottom: 25px; font-size: 14px; color: var(--text-dark); }
+        .story-flow { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .story-node { flex: 1; min-width: 220px; background: var(--white); border: 1px solid var(--secondary-color); padding: 15px; border-radius: 8px; }
+        .story-node .time { font-size: 12px; color: var(--primary-color); font-weight: 600; margin-bottom: 5px; display: block; }
+        .story-arrow { color: var(--secondary-color); font-size: 20px; font-weight: bold; }
+
+        .evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 20px; align-items: start; }
+        .evidence-card { background: var(--white); border: 1px solid var(--secondary-color); border-radius: 12px; padding: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+        .evidence-card h4 { font-size: 16px; margin-bottom: 15px; color: var(--text-dark); line-height: 1.4; }
+        .highlight { background-color: var(--highlight); padding: 0 4px; border-radius: 3px; font-weight: 600; }
+        .evidence-text { font-size: 14px; line-height: 1.8; color: var(--text-muted); background: var(--bg-color); padding: 15px; border-radius: 8px; }
+
+        .mapping-container { display: flex; position: relative; min-height: 600px; align-items: stretch; }
+        .mapping-col { width: 420px; padding: 10px; z-index: 2; display: flex; flex-direction: column; gap: 25px; }
+        .mapping-canvas-wrap { flex: 1; position: relative; min-width: 150px; z-index: 1; }
+        #mapping-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .map-group-title { font-size: 15px; font-weight: 700; color: var(--text-dark); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--secondary-color); }
+        .map-item { background: var(--white); border: 1px solid var(--secondary-color); padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; transition: 0.2s; cursor: default; line-height: 1.3;}
+        .map-item .time-tag { float: right; font-size: 12px; color: var(--primary-light); font-weight: normal; background: var(--secondary-light); padding: 2px 6px; border-radius: 10px;}
+        .map-item.hovered { border-color: var(--primary-color); background: #FAF5F0; transform: scale(1.02); z-index: 10;}
+
+        .wiki-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+
+        @media print {
+            body { background: white; }
+            header .btn-print, .tabs { display: none; }
+            main { height: auto; padding: 0; min-height: auto; }
+            .tab-content { display: block !important; margin-bottom: 50px; page-break-inside: avoid; }
+            .graph-container { height: 500px; }
+            .timeline-scroll { flex-wrap: wrap; height: auto; }
+            .grade-col { flex: 1 1 100%; margin-bottom: 20px; }
+            .mapping-container { flex-direction: column; height: auto; }
+            .mapping-canvas-wrap { display: none; }
+            .mapping-col { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-area">
+            <h1>살아있는 생기부 리포트</h1>
+            <p>개인정보 비식별화 완료 · 학생A 전수 활동 및 역량 100% 심층 동기화 분석</p>
+        </div>
+        <button class="btn-print" onclick="window.print()">보고서 인쇄</button>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-target="tab-graph">키워드 노드표</button>
+        <button class="tab-btn" data-target="tab-timeline">학년간 활동</button>
+        <button class="tab-btn" data-target="tab-story">주제 묶기</button>
+        <button class="tab-btn" data-target="tab-tree">역량 확인</button>
+        <button class="tab-btn" data-target="tab-evidence">원문 확인</button>
+        <button class="tab-btn" data-target="tab-wiki">AI 학습 사전</button>
+        <button class="tab-btn" data-target="tab-reclass">활동 분류</button>
+    </div>
+
+    <main>
+        <!-- 1. 키워드 노드표 -->
+        <div id="tab-graph" class="tab-content active">
+            <div class="section-desc">학생을 중심으로 관심사, 활동, 역량, 개념, 배움이 어떻게 이어지는지 한눈에 보여줘요.<br><b>범례:</b> 중앙(학생), 노란색(관심사), 파란색(활동), 초록색(역량), 보라색(개념), 주황색(배움) / 실선(핵심근거), 점선(보조근거)</div>
+            <div id="network-container" class="graph-container"></div>
+        </div>
+
+        <!-- 2. 학년간 활동 -->
+        <div id="tab-timeline" class="tab-content">
+            <div class="section-desc">학기 순서대로 모든 주요 활동과 배움의 기록이 어떻게 깊어졌는지 따라가요. (1~3학년 전수 추출)</div>
+            <div class="timeline-scroll" id="timeline-render"></div>
+        </div>
+
+        <!-- 3. 주제 묶기 -->
+        <div id="tab-story" class="tab-content">
+            <div class="section-desc">하나의 주제나 호기심으로 길게 이어지는 생기부 항목들을 시간 흐름 순으로 묶어냅니다. (12대 심층 서사 아크)</div>
+            <div class="story-container" id="story-render"></div>
+        </div>
+
+        <!-- 4. 역량 트리 -->
+        <div id="tab-tree" class="tab-content">
+            <div class="section-desc">학생의 돋보이는 능력과 우수한 역량이 어떤 활동들로부터 자라났는지 계층 구조로 보여줘요. (키워드 노드표와 100% 동기화)</div>
+            <div id="tree-container" class="graph-container"></div>
+        </div>
+
+        <!-- 5. 원문 확인 -->
+        <div id="tab-evidence" class="tab-content">
+            <div class="section-desc">앞서 추출된 모든 키워드, 활동, 역량의 실제 생기부 원문을 1:1로 빠짐없이 대조해 보여줘요.</div>
+            <div class="evidence-grid" id="evidence-render"></div>
+        </div>
+
+        <!-- 6. AI 학습 사전 -->
+        <div id="tab-wiki" class="tab-content">
+            <div class="section-desc">AI가 분석한 주요 학술 개념, 전문 수사 기법, 법리 이론의 사전적 요약입니다.</div>
+            <div class="wiki-grid" id="wiki-render"></div>
+        </div>
+
+        <!-- 7. 활동 분류 (매핑) -->
+        <div id="tab-reclass" class="tab-content">
+            <div class="section-desc">생기부에 적힌 영역(좌측)과 학생이 수행한 활동 및 8대 관심 계열(우측)을 빠짐없이 이어줘요. 마우스를 올려보세요.</div>
+            <div class="mapping-container">
+                <div class="mapping-col" id="map-left"></div>
+                <div class="mapping-canvas-wrap"><svg id="mapping-svg"></svg></div>
+                <div class="mapping-col" id="map-right"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 전수 추출된 무결성 동기화 JSON 데이터 구조체
+        const studentData = {
+            graph: {
+                nodes: [
+                    { id: 1, label: "학생A", group: "student" },
+                    // 관심사 (interest)
+                    { id: 2, label: "경찰학 및 과학수사", group: "interest" },
+                    { id: 3, label: "형사사법 및 인권법", group: "interest" },
+                    { id: 4, label: "범죄심리 및 프로파일링", group: "interest" },
+                    { id: 5, label: "수리통계 및 AI 윤리", group: "interest" },
+                    { id: 6, label: "신체훈련 및 치안대응", group: "interest" },
+                    
+                    // 핵심 개념 (concept)
+                    { id: 7, label: "신경범죄학 및 뇌과학", group: "concept" },
+                    { id: 8, label: "루미놀 화학발광 반응", group: "concept" },
+                    { id: 9, label: "베이지안 추론 및 조건부확률", group: "concept" },
+                    { id: 10, label: "라이브 메모리 포렌식", group: "concept" },
+                    { id: 11, label: "피해자 중심 회복적 사법", group: "concept" },
+                    { id: 12, label: "통계적 공정성 및 알고리즘 편향", group: "concept" },
+                    { id: 13, label: "인지 면담법 및 PEACE 기법", group: "concept" },
+                    { id: 14, label: "DNA 페노타이핑 및 기본권 충돌", group: "concept" },
+                    
+                    // 활동 (activity)
+                    { id: 15, label: "루미놀 위양성 2차 검증 실험", group: "activity" },
+                    { id: 16, label: "베이지안 스토킹 재범 예측 모델 설계", group: "activity" },
+                    { id: 17, label: "다크웹 익명성 구조 및 포렌식 탐구", group: "activity" },
+                    { id: 18, label: "신경과학 기반 형사책임론 탐구", group: "activity" },
+                    { id: 19, label: "경찰 공권력 한계 및 과잉진압 판례 분석", group: "activity" },
+                    { id: 20, label: "범죄 예측 알고리즘 차별 구조 수학 모델링", group: "activity" },
+                    { id: 21, label: "위기 협상 화법 및 적극적 경청 분석", group: "activity" },
+                    { id: 22, label: "디지털 성범죄 피해 구제 법제도 제안", group: "activity" },
+                    { id: 23, label: "지리적 프로파일링 및 BEA 한계 분석", group: "activity" },
+                    { id: 24, label: "스토킹 재범 방지 전자발찌 정책 제안", group: "activity" },
+                    { id: 25, label: "체력훈련 및 스포츠 상황판단 실천", group: "activity" },
+                    { id: 26, label: "학급 자치 및 스터디그룹 협력 조력", group: "activity" },
+
+                    // 역량 (competence) - competenceTree의 역량명과 100% 동기화
+                    { id: 27, label: "과학수사 및 법화학 탐구력", group: "competence" },
+                    { id: 28, label: "형사사법 및 인권윤리 분석력", group: "competence" },
+                    { id: 29, label: "수리통계 및 알고리즘 검증력", group: "competence" },
+                    { id: 30, label: "디지털 포렌식 및 사이버보안 통찰력", group: "competence" },
+                    { id: 31, label: "심리인지 및 위기협상 소통력", group: "competence" },
+                    { id: 32, label: "신체조절 및 현장대응 실행력", group: "competence" },
+
+                    // 배움 및 가치 (lesson)
+                    { id: 33, label: "인간 존엄성과 법적 절차주의", group: "lesson" },
+                    { id: 34, label: "기술 중립성에 대한 비판적 성찰", group: "lesson" },
+                    { id: 35, label: "단순 처벌을 넘어선 치료적 사법 필요성", group: "lesson" },
+                    { id: 36, label: "상호 경청과 합의 중심의 공동체 리더십", group: "lesson" }
+                ],
+                edges: [
+                    // 학생 중심선
+                    { from: 1, to: 2, dashes: false, title: "핵심 근거" },
+                    { from: 1, to: 3, dashes: false, title: "핵심 근거" },
+                    { from: 1, to: 4, dashes: false, title: "핵심 근거" },
+                    { from: 1, to: 5, dashes: false, title: "핵심 근거" },
+                    { from: 1, to: 6, dashes: false, title: "핵심 근거" },
+                    // 관심사 -> 개념
+                    { from: 2, to: 8, dashes: false, title: "핵심 근거" },
+                    { from: 2, to: 10, dashes: false, title: "핵심 근거" },
+                    { from: 3, to: 11, dashes: false, title: "핵심 근거" },
+                    { from: 3, to: 14, dashes: true, title: "보조 근거" },
+                    { from: 4, to: 7, dashes: false, title: "핵심 근거" },
+                    { from: 4, to: 13, dashes: false, title: "핵심 근거" },
+                    { from: 5, to: 9, dashes: false, title: "핵심 근거" },
+                    { from: 5, to: 12, dashes: false, title: "핵심 근거" },
+                    // 개념 -> 활동
+                    { from: 8, to: 15, dashes: false, title: "핵심 근거" },
+                    { from: 9, to: 16, dashes: false, title: "핵심 근거" },
+                    { from: 10, to: 17, dashes: false, title: "핵심 근거" },
+                    { from: 7, to: 18, dashes: false, title: "핵심 근거" },
+                    { from: 3, to: 19, dashes: false, title: "핵심 근거" },
+                    { from: 12, to: 20, dashes: false, title: "핵심 근거" },
+                    { from: 13, to: 21, dashes: false, title: "핵심 근거" },
+                    { from: 11, to: 22, dashes: false, title: "핵심 근거" },
+                    { from: 4, to: 23, dashes: true, title: "보조 근거" },
+                    { from: 3, to: 24, dashes: true, title: "보조 근거" },
+                    { from: 6, to: 25, dashes: false, title: "핵심 근거" },
+                    { from: 1, to: 26, dashes: false, title: "핵심 근거" },
+                    // 활동 -> 역량
+                    { from: 15, to: 27, dashes: false, title: "핵심 근거" },
+                    { from: 18, to: 28, dashes: false, title: "핵심 근거" },
+                    { from: 19, to: 28, dashes: false, title: "핵심 근거" },
+                    { from: 22, to: 28, dashes: false, title: "핵심 근거" },
+                    { from: 16, to: 29, dashes: false, title: "핵심 근거" },
+                    { from: 20, to: 29, dashes: false, title: "핵심 근거" },
+                    { from: 17, to: 30, dashes: false, title: "핵심 근거" },
+                    { from: 21, to: 31, dashes: false, title: "핵심 근거" },
+                    { from: 23, to: 31, dashes: true, title: "보조 근거" },
+                    { from: 25, to: 32, dashes: false, title: "핵심 근거" },
+                    { from: 26, to: 31, dashes: true, title: "보조 근거" },
+                    // 배움으로의 귀결
+                    { from: 28, to: 33, dashes: true, title: "보조 근거" },
+                    { from: 29, to: 34, dashes: true, title: "보조 근거" },
+                    { from: 18, to: 35, dashes: true, title: "보조 근거" },
+                    { from: 26, to: 36, dashes: true, title: "보조 근거" }
+                ]
+            },
+            timeline: [
+                {
+                    grade: "1학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "학급 반장 및 의견수렴 건의함 설치", type: "자율", semester: "1-1" },
+                                { title: "마약 범죄 실태 분석 및 재활병동 증설 제언", type: "자율", semester: "1-1" },
+                                { title: "현직 검사 초청 학교폭력 예방 교육 이수", type: "자율", semester: "1-1" },
+                                { title: "안락사 법적 허용 찬성 토론 및 헌법적 자기결정권 주장", type: "자율", semester: "1-1" },
+                                { title: "범죄 기사 스크랩 및 사이코패스·소시오패스 비교", type: "동아리", semester: "1-1" },
+                                { title: "기초체력 훈련 및 왕복달리기 단련 (포텐셜)", type: "동아리", semester: "1-1" },
+                                { title: "다중지능 검사 및 경찰 직업적합성 분석", type: "진로", semester: "1-1" },
+                                { title: "경찰행정학과 및 직무 로드맵 구축", type: "진로", semester: "1-1" },
+                                { title: "'과학자의 연구 자유의 보장 범위' 서평 작성", type: "국어", semester: "1-1" },
+                                { title: "대수 막대 다항식 나눗셈 및 달력 항등식 설계", type: "수학", semester: "1-1" },
+                                { title: "롤모델(경찰·프로파일러) 소개 영작 발표", type: "영어", semester: "1-1" },
+                                { title: "훈민정음 창제와 세종 애민정신 역사일력 제작", type: "한국사", semester: "1-1" },
+                                { title: "우리 동네 상권 변화 및 주차난 해결방안 조사", type: "통합사회", semester: "1-1" },
+                                { title: "독일 베를린 기후분석 및 발열패드 상품 기획", type: "통합사회", semester: "1-1" },
+                                { title: "DNA칩 기사 분석 및 과학수사 생명공학 관심", type: "통합과학", semester: "1-1" },
+                                { title: "충돌 운동에너지 연역적 실험 설계 및 영상 분석", type: "과탐실", semester: "1-1" },
+                                { title: "경찰 맞춤형 자율주행 미래 모빌리티 3각법 설계", type: "기술가정", semester: "1-1" },
+                                { title: "지방 학생 교육평등 가상현실 플랫폼 제안", type: "기술가정", semester: "1-1" },
+                                { title: "경찰 직업가치 및 협업·도전 역량 탐색", type: "진로직업", semester: "1-1" },
+                                { title: "좌우명 '붕몽의생' 선정 및 실천 다짐", type: "한문", semester: "1-1" },
+                                { title: "탁구·축구 경기 및 스포츠맨십 발휘", type: "체육", semester: "1-1" },
+                                { title: "악기 연주 및 피아노 발표", type: "음악", semester: "1-1" },
+                                { title: "정자 풍경화 및 고흐 해바라기 모자이크 제작", type: "미술", semester: "1-1" },
+                                { title: "경찰-미술 연계(몽타주·프로파일링) 발표", type: "미술", semester: "1-1" },
+                                { title: "교내외 환경정화 봉사활동 참여", type: "봉사", semester: "1-1" }
+                            ]
+                        },
+                        {
+                            term: "2학기",
+                            activities: [
+                                { title: "'누가 진짜 범인인가' 진로독서 및 프로파일링 분석", type: "진로", semester: "1-2" },
+                                { title: "자기주도적 스터디 플래너 운영 및 성적 향상", type: "진로", semester: "1-2" },
+                                { title: "서정시 '다시 오기를' 창작 및 상호이익 협상 모둠활동", type: "국어", semester: "1-2" },
+                                { title: "스웨덴 갱단 범죄 기사 기반 명제 구성 및 검증", type: "수학", semester: "1-2" },
+                                { title: "힐베르트 호텔의 역설 논리적 해결 보고서", type: "수학", semester: "1-2" },
+                                { title: "해양오염 해결책 영작 및 경찰 조직도 퀴즈 제작", type: "영어", semester: "1-2" },
+                                { title: "고려 금오위와 현대 경찰제도 비교 고찰", type: "한국사", semester: "1-2" },
+                                { title: "한대기후 환경 적응 캐릭터(북극여우) 창작", type: "통합사회", semester: "1-2" },
+                                { title: "지문 채취 속 탄소 원소카드 제작 및 친환경도시 설계", type: "통합과학", semester: "1-2" },
+                                { title: "자유낙하 운동실험 및 아리스토텔레스-갈릴레이 패러다임 분석", type: "과탐실", semester: "1-2" },
+                                { title: "목공 실습 및 생활용품 소중함 체득", type: "기술가정", semester: "1-2" },
+                                { title: "영화 '컨택트' 연계 소통윤리 및 맞춤상담 AI 도출 프로젝트", type: "융합", semester: "1-2" },
+                                { title: "순발력 및 집중력 강화 체육 훈련", type: "체육", semester: "1-2" },
+                                { title: "'환경과 생태 좀 아는 10대' 독서활동", type: "독서", semester: "1-2" },
+                                { title: "분리수거 도우미 및 축제 환경미화 봉사", type: "봉사", semester: "1-2" },
+                                { title: "마니또 행사 기획 및 학급 친목 도모", type: "행특", semester: "1-2" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    grade: "2학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "학급 부반장 솔선수범 및 면학 분위기 조성", type: "자율", semester: "2-1" },
+                                { title: "경찰 공권력 행사와 인권침해 갈등 탐구 활동지", type: "자율", semester: "2-1" },
+                                { title: "대통령 4년 중임제 및 남북통일 찬반 토의", type: "동아리", semester: "2-1" },
+                                { title: "스토킹 범죄 재범방지 전자발찌 부착 정책 제안서", type: "동아리", semester: "2-1" },
+                                { title: "진로캠프 치안협력 모델 구상 및 범죄예방 캠페인 기획", type: "진로", semester: "2-1" },
+                                { title: "최치원 '추야우중'과 이상화 시 비교를 통한 소외감 분석", type: "문학", semester: "2-1" },
+                                { title: "'구보씨의 일일' 비판적 성찰 및 실천의지 고찰", type: "문학", semester: "2-1" },
+                                { title: "역사 속 등차수열 문제 해결 및 대안 제시", type: "수학I", semester: "2-1" },
+                                { title: "한·미 경찰 제도 비교 영문 발표", type: "영어I", semester: "2-1" },
+                                { title: "좌우명 '후회 없는 행동, 청렴한 마음' 영작", type: "영어I", semester: "2-1" },
+                                { title: "성폭력에 따른 경찰 대응책 및 제도개선 보고서", type: "사회문화", semester: "2-1" },
+                                { title: "조선 면제배갑부터 케블라까지 방탄복 화학소재 탐구", type: "화학I", semester: "2-1" },
+                                { title: "루미놀 화학발광 산화-촉매 반응 메커니즘 분석", type: "화학I", semester: "2-1" },
+                                { title: "빅데이터 기반 AI 서비스 리터러시 고찰", type: "정보", semester: "2-1" },
+                                { title: "한일 문화(눈치 vs 메이와쿠) 비교 분석", type: "일본어I", semester: "2-1" },
+                                { title: "일본 경찰 권한과 낮은 검사 기소율 탐구", type: "일본어I", semester: "2-1" },
+                                { title: "수학과제탐구 죄수의 딜레마 및 게임이론 심화", type: "진로선택", semester: "2-1" },
+                                { title: "페르미 추정을 통한 서울시 하루 범죄 발생건수 추정", type: "진로선택", semester: "2-1" },
+                                { title: "왕복오래달리기 완주 및 플로어컬링 힘조절 훈련", type: "체육", semester: "2-1" },
+                                { title: "서양 고전음악 기악양식 비교 도식화", type: "음악", semester: "2-1" },
+                                { title: "교내 분리수거 도우미 봉사활동", type: "봉사", semester: "2-1" }
+                            ]
+                        },
+                        {
+                            term: "2학기",
+                            activities: [
+                                { title: "범죄 예측 알고리즘의 구조적 차별 위험 수학적 모델링", type: "진로", semester: "2-2" },
+                                { title: "도덕적 갈등 해결을 위한 다원주의적 판단 전략 수립", type: "독서", semester: "2-2" },
+                                { title: "나만의 최적화 함수 설계 및 미분가능성 검증", type: "수학II", semester: "2-2" },
+                                { title: "사이버 폭력 댓글 경찰 개입 타당성 실험 보고서", type: "영어II", semester: "2-2" },
+                                { title: "사진 수필 '나의 편안한 공간' 영작", type: "영어II", semester: "2-2" },
+                                { title: "칸트 동기주의와 롤스 시민불복종 기반 경찰관 윤리 정립", type: "윤사", semester: "2-2" },
+                                { title: "이상사회 구상: 법이 공정하게 작용하는 정의 사회", type: "윤사", semester: "2-2" },
+                                { title: "마약 중독의 신경가소성 및 보상회로 메커니즘 분석", type: "생명과학I", semester: "2-2" },
+                                { title: "중독 치료의 생물학적 회복 및 환경 개입 병행 제안", type: "생명과학I", semester: "2-2" },
+                                { title: "데이터 무손실·손실 압축 및 중첩루프 코딩", type: "정보", semester: "2-2" },
+                                { title: "굴 패각 순환활용 융합실험 및 환경정책 보고서 작성", type: "융합", semester: "2-2" },
+                                { title: "사회정의 실현을 위한 경찰관 비전 영어 에세이 작성", type: "진로영어", semester: "2-2" },
+                                { title: "배구 언더핸드 서브 및 농구 골밑슛 정밀 통제 훈련", type: "체육", semester: "2-2" },
+                                { title: "테셀레이션 및 초밥·기타 모티브 미술 창작", type: "미술", semester: "2-2" },
+                                { title: "자발적 스터디그룹 결성 및 경청·합의 태도 성찰", type: "행특", semester: "2-2" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    grade: "3학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "신경과학과 형사사법 체계 및 심신장애 책임능력 분석", type: "자율", semester: "3-1" },
+                                { title: "fMRI 뇌영상 증거능력과 맞춤형 치료명령 제안", type: "자율", semester: "3-1" },
+                                { title: "리서치 동아리장 총괄 및 팀 탐구 리더십 발휘", type: "동아리", semester: "3-1" },
+                                { title: "다크웹 익명성 구조(토르/믹싱) 및 한계 분석", type: "동아리", semester: "3-1" },
+                                { title: "라이브 메모리 포렌식(RAM 휘발성 데이터 수집) 발표", type: "동아리", semester: "3-1" },
+                                { title: "블록체인 추적 및 AI 이상행위 탐지 과학수사 제시", type: "동아리", semester: "3-1" },
+                                { title: "'나비 사냥' 독서 및 행동증거분석·지리적 프로파일링 비교", type: "진로", semester: "3-1" },
+                                { title: "AI 영상분석·디지털 포렌식의 윤리적 한계 및 미래 경찰 포부", type: "진로", semester: "3-1" },
+                                { title: "경찰 위기 협상 화법과 적극적 경청 전략 분석", type: "화작", semester: "3-1" },
+                                { title: "경남 범죄유형 통계 정규분포 및 모평균 신뢰구간 추정", type: "확통", semester: "3-1" },
+                                { title: "베이지안 스토킹 재범 예측 모델 설계 및 사후확률 갱신", type: "확통", semester: "3-1" },
+                                { title: "증오 범죄(Hate Crime) 심각성 및 연대 촉구 영문 기사 작성", type: "영독작", semester: "3-1" },
+                                { title: "주민등록번호 변경제한 과잉금지원칙 위배 법적 검토", type: "정치와법", semester: "3-1" },
+                                { title: "디지털 성범죄 피해자 법적 구제 및 회복적 사법 제안", type: "정치와법", semester: "3-1" },
+                                { title: "DNA 페노타이핑(얼굴복원) 윤리적 쟁점 및 절충안 도출", type: "생윤", semester: "3-1" },
+                                { title: "소년범 재범 방지 응보주의·공리주의 비교 및 SPO 확대 제언", type: "생윤", semester: "3-1" },
+                                { title: "한자 어원 탐구 및 고사성어 구사력 발휘", type: "한문I", semester: "3-1" },
+                                { title: "로프터스 오정보 효과 분석 및 PEACE 면담기법 제안", type: "심리학", semester: "3-1" },
+                                { title: "루미놀 반응 표백제 위양성 2차 시간경과 검증 프로젝트", type: "융합탐구", semester: "3-1" },
+                                { title: "현대문학 인물 심리 재해석 및 사회구조적 맥락 서평", type: "현전문학", semester: "3-1" },
+                                { title: "피의자 얼굴 공개 찬반 비평문 작성", type: "사문탐", semester: "3-1" },
+                                { title: "선거 범죄 AI 다중 탐지 및 포렌식 제약 극복 방안", type: "사문탐", semester: "3-1" },
+                                { title: "제자리멀리뛰기 순발력 및 밸런스보드 코어 조절 훈련", type: "체육", semester: "3-1" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            story: [
+                {
+                    title: "1. 약물 중독과 신경범죄학: 처벌에서 뇌과학 기반 치료적 사법으로의 심화",
+                    type: "자연·의약 / 사회·법학",
+                    interpretation: "AI 심층 해석: 1학년 자율활동에서 마약 범죄의 인터넷 유통 실태를 고발하고 재활병동 증설을 주장했던 문제의식이, 2학년 생명과학에서 도파민 보상회로와 전전두엽 기능 저하 메커니즘 규명으로 심화되었으며, 3학년에는 신경과학적 증거(fMRI)의 법정 증거능력과 형법 제10조 심신장애 책임능력론에 대한 융합적 고찰로 완성되었습니다. 단순 엄벌주의를 넘어 의학적 회복과 규범적 판단을 잇는 독보적 융합 탐구입니다.",
+                    steps: [
+                        { time: "1-1", title: "마약 범죄 실태 분석 및 재활병동 제언", detail: "자율활동" },
+                        { time: "2-2", title: "보상회로와 신경가소성 기반 마약 중독 분석", detail: "생명과학I" },
+                        { time: "3-1", title: "신경과학 기반 형사사법 체계 및 맞춤형 치료명령 제안", detail: "자율활동" }
+                    ]
+                },
+                {
+                    title: "2. 수리통계 모델링을 통한 범죄 예방 및 알고리즘의 공정성 검증",
+                    type: "공학·자연 / 사회",
+                    interpretation: "AI 심층 해석: 1학년 수학의 힐베르트 호텔 역설과 명제 논증 훈련을 거친 학생은, 2학년 진로활동에서 CCTV 사각지대와 단속 편향이 순찰 강화로 이어지는 피드백 루프를 수학적 모델로 구축하여 '알고리즘의 통계적 공정성'을 비판했습니다. 나아가 3학년 확률과 통계에서는 조건부확률과 베이즈 정리를 활용해 스토킹 행동 징후에 따른 재범 확률 갱신 모델(50%->99.9%)을 직접 설계하는 고도의 수리적 역량을 보였습니다.",
+                    steps: [
+                        { time: "1-2", title: "힐베르트 호텔 무한 역설 및 명제 논리 탐구", detail: "수학" },
+                        { time: "2-2", title: "범죄 예측 알고리즘 차별 구조 수학 모델링", detail: "진로활동" },
+                        { time: "3-1", title: "베이지안 스토킹 재범 예측 모델 설계", detail: "확률과통계" }
+                    ]
+                },
+                {
+                    title: "3. 과학수사 화학 메커니즘의 실증: 루미놀 반응의 오판 방지 2차 검증 실험",
+                    type: "자연·공학 / 과학수사",
+                    interpretation: "AI 심층 해석: 1학년 통합과학에서 지문 채취용 탄소의 화학적 특성을 탐구한 후, 2학년 화학I에서 루미놀 산화 촉매 반응과 금속 이온의 전자 전이 메커니즘을 이론적으로 정립했습니다. 3학년 과학수사 융합 프로젝트에서는 표백제(락스)로 인한 위양성 반응이 사법 오판을 부를 수 있다는 비판적 문제의식을 바탕으로, 시간 경과(6시간 후)에 따른 2차 검증 실험을 주도하여 법정 보조증거로서의 한계와 교차검증 프로토콜을 도출했습니다.",
+                    steps: [
+                        { time: "1-2", title: "지문 채취 탄소 원소 분석 및 과학수사 관심", detail: "통합과학" },
+                        { time: "2-1", title: "루미놀 발광 메커니즘 및 반응조건 분석", detail: "화학I" },
+                        { time: "3-1", title: "루미놀 위양성 2차 시간경과 검증 실험", detail: "융합탐구" }
+                    ]
+                },
+                {
+                    title: "4. 사이버 범죄 추적과 안티 포렌식 극복을 위한 첨단 정보기술 탐구",
+                    type: "공학계열 / 사이버수사",
+                    interpretation: "AI 심층 해석: 1학년 기술가정과 정보 교과에서 알고리즘과 데이터 압축, 모빌리티 시스템을 탐구한 뒤, 2학년 동아리와 영어 세특에서 사이버 폭력 및 디지털 시스템을 분석했습니다. 3학년 리서치 동아리에서는 토르 네트워크, 가상화폐 믹싱 등 다크웹의 익명성 강화 기법을 체계적으로 해부하고, 시스템 재부팅 전 RAM의 암호화 키를 확보하는 '라이브 메모리 포렌식'과 해시 무결성 검증, 블록체인 추적 방안을 제안하는 전문성을 입증했습니다.",
+                    steps: [
+                        { time: "1-1", title: "자율주행 모빌리티 및 시스템 제어 구조 설계", detail: "기술가정" },
+                        { time: "2-2", title: "사이버 폭력 댓글 경찰 개입 타당성 실험", detail: "영어II" },
+                        { time: "3-1", title: "다크웹 익명성 및 라이브 메모리 포렌식 탐구", detail: "동아리활동" }
+                    ]
+                },
+                {
+                    title: "5. 행동과학 기반 프로파일링과 수사 면담 기법의 고도화",
+                    type: "사회·인문 / 심리학",
+                    interpretation: "AI 심층 해석: 1학년 '누가 진짜 범인인가'를 읽고 사이코패스와 소시오패스의 범죄 동기를 탐색했던 학생은, 3학년 '나비 사냥'을 통해 행동증거분석(BEA)과 지리적 프로파일링의 조직범죄 적용 한계를 비판적으로 검토했습니다. 나아가 심리학 수업에서 로프터스의 오정보 효과를 분석하고, 확증 편향과 진술 왜곡을 막기 위한 'PEACE 기법' 및 '인지 면담법'을 제안하며 진술의 신뢰성을 담보하는 수사 절차를 설계했습니다.",
+                    steps: [
+                        { time: "1-2", title: "'누가 진짜 범인인가' 진로독서 및 범죄유형 탐색", detail: "진로활동" },
+                        { time: "3-1", title: "지리적 프로파일링 한계 및 BEA 분석", detail: "진로활동" },
+                        { time: "3-1", title: "PEACE 기법 및 인지 면담법 제안", detail: "심리학" }
+                    ]
+                },
+                {
+                    title: "6. 경찰 공권력의 한계와 헌법적 기본권 보장의 윤리적 균형",
+                    type: "사회·법학 / 인문철학",
+                    interpretation: "AI 심층 해석: 1학년 안락사 찬반 토론에서 헌법상 신체의 자유와 자기결정권을 수호했던 철학적 사유는, 2학년 자율활동에서 경찰 공권력과 과잉진압의 판례 비교 분석으로 구체화되었습니다. 이후 윤리와 사상에서 칸트의 인간 존엄성 정식과 롤스의 시민불복종 이론을 접목하여 '공권력은 법 기계가 아닌 목적 그 자체로서 시민을 보호해야 한다'는 경찰관 공직 윤리를 확립했습니다.",
+                    steps: [
+                        { time: "1-1", title: "안락사 토론 및 헌법상 자기결정권 주장", detail: "자율활동" },
+                        { time: "2-1", title: "경찰 공권력 행사와 인권침해 판례 분석", detail: "자율활동" },
+                        { time: "2-2", title: "칸트 동기주의 및 롤스 시민불복종 공직윤리 수립", detail: "윤리와사상" }
+                    ]
+                },
+                {
+                    title: "7. 스토킹 및 디지털 성범죄 피해자 중심 회복적 사법 체계 구축",
+                    type: "사회계열 / 법학정책",
+                    interpretation: "AI 심층 해석: 2학년 동아리활동에서 반복적 스토킹 범죄의 허점을 짚으며 경찰 긴급보호명령 강화 및 전자발찌 부착 의무화 법안을 입안했던 실천력은, 3학년 정치와 법에서 디지털 성범죄 피해 구제 탐구로 확장되었습니다. 민법 제750조 불법행위의 한계를 극복하기 위해 플랫폼의 삭제 의무, 국가 선구제 후구상권 제도, 민법 제755조 감독자 책임 확대를 주장하며 응보적 형벌을 넘어선 회복적 사법을 제안했습니다.",
+                    steps: [
+                        { time: "2-1", title: "스토킹 범죄 재범방지 전자발찌 부착 정책 제안", detail: "동아리활동" },
+                        { time: "2-1", title: "성폭력에 따른 경찰 대응책 및 제도개선 분석", detail: "사회문화" },
+                        { time: "3-1", title: "디지털 성범죄 피해자 법적 구제 및 회복적 사법", detail: "정치와법" }
+                    ]
+                },
+                {
+                    title: "8. 위기 대응 및 갈등 중재를 위한 실천적 화법과 경청의 리더십",
+                    type: "인문·어문 / 소통",
+                    interpretation: "AI 심층 해석: 1학년 협상 모둠활동과 영화 '컨택트' 프로젝트를 통해 '소통은 상대를 진정으로 이해하는 마음'이라 정의했던 학생은, 3학년 화법과 작문에서 경찰 위기 협상 화법을 학술적으로 분석했습니다. 적극적 경청, 나-전달법, 개방형 질문(상황 원인 파악)과 폐쇄형 질문(신속 정보 확인)의 전략적 배치를 도출하여, 무력 제압 이전 대화로 생명을 구하는 경찰관의 소통 전문성을 완성했습니다.",
+                    steps: [
+                        { time: "1-2", title: "영화 '컨택트' 연계 소통윤리 화용론 프로젝트", detail: "융합탐구" },
+                        { time: "2-2", title: "학급 스터디그룹 결성 및 경청 태도 성찰", detail: "행특" },
+                        { time: "3-1", title: "경찰 위기 협상 화법 및 적극적 경청 분석", detail: "화법과작문" }
+                    ]
+                },
+                {
+                    title: "9. 첨단 바이오 수사 기술과 개인정보 자기결정권의 윤리적 쟁점",
+                    type: "사회 / 자연·공학",
+                    interpretation: "AI 심층 해석: 1학년 통합과학의 DNA칩 신문스크랩에서 출발한 생명공학적 호기심은, 3학년 생활과 윤리에서 'DNA 페노타이핑(유전자 기반 얼굴 복원 기술)'의 법정 활용 문제로 발전했습니다. 범죄 척결이라는 공익과 유전 정보 오남용이라는 기본권 침해의 딜레마를 벤담의 공리주의, 칸트의 의무론, 롤스의 절차적 정의로 다각 비교하고 '수사 참고용 제한적 활용'이라는 성숙한 법윤리적 절충안을 제시했습니다.",
+                    steps: [
+                        { time: "1-1", title: "DNA칩 기사 분석 및 과학수사 생체정보 탐색", detail: "통합과학" },
+                        { time: "3-1", title: "주민등록번호 변경제한 과잉금지원칙 검토", detail: "정치와법" },
+                        { time: "3-1", title: "DNA 페노타이핑 윤리적 쟁점 및 절충안 도출", detail: "생활과윤리" }
+                    ]
+                },
+                {
+                    title: "10. 글로벌 치안 및 사회적 약자 보호를 위한 국제적 시각 확장",
+                    type: "인문·사회 / 어학",
+                    interpretation: "AI 심층 해석: 2학년 영어I에서 한·미 경찰 제도를 비교하며 총기 규제 및 공권력 기준의 사회문화적 차이를 규명한 후, 3학년 영어 독해와 작문에서는 샌디에이고 사건 등 실제 사례를 바탕으로 증오 범죄(Hate Crime)에 관한 영문 기사를 직접 작성했습니다. 소수자 편견이 강력 범죄로 번지는 고리를 법과 교육, 시민 연대로 끊어야 함을 주장하며 글로벌 민주 시민으로서의 치안 안목을 보였습니다.",
+                    steps: [
+                        { time: "2-1", title: "한·미 경찰 제도 비교 영문 발표", detail: "영어I" },
+                        { time: "2-2", title: "사회정의 실현을 위한 경찰관 비전 에세이", detail: "진로영어" },
+                        { time: "3-1", title: "증오 범죄 심각성 및 사회적 연대 촉구 영문 기사", detail: "영어독해와작문" }
+                    ]
+                },
+                {
+                    title: "11. 경찰 직무 완수를 위한 신체 조절력과 현장 통제력의 체화",
+                    type: "예체능 / 체육",
+                    interpretation: "AI 심층 해석: 1학년 체력 동아리(포텐셜)에서 왕복달리기와 하체·코어 훈련을 성실히 시작하여, 2학년 스포츠 생활에서 심폐지구력과 순간 임팩트 제어 능력을 다졌습니다. 3학년 운동과 건강에서는 제자리멀리뛰기 순발력과 밸런스보드 코어 안정성 훈련을 통해 긴박한 범죄 현장에서 신속히 반응하고 침착하게 신체를 통제하는 현장 경찰관의 피지컬 기초를 확립했습니다.",
+                    steps: [
+                        { time: "1-1", title: "포텐셜 동아리 기초체력 및 왕복달리기 단련", detail: "동아리활동" },
+                        { time: "2-1", title: "왕복오래달리기 완주 및 서브 임팩트 통제", detail: "스포츠생활" },
+                        { time: "3-1", title: "제자리멀리뛰기 순발력 및 코어 밸런스 체화", detail: "운동과건강" }
+                    ]
+                },
+                {
+                    title: "12. 역사적 연속성과 제도적 진화를 통섭하는 치안 철학의 태동",
+                    type: "인문계열 / 역사·철학",
+                    interpretation: "AI 심층 해석: 1학년 한국사에서 고려 시대 순검 임무를 맡았던 '금오위'와 현대 경찰 조직을 비교하며 치안 제도의 시대적 발전 궤적을 추적했습니다. 2학년 화학에서는 조선시대 면제배갑이 현대의 합성섬유 케블라 방탄복으로 이어지는 기술사를 탐색했으며, 이러한 거시적 안목은 현대 사회의 피의자 인권과 알 권리 충돌을 다룬 3학년 사회문제 탐구 비평문으로 성숙하게 연결되었습니다.",
+                    steps: [
+                        { time: "1-2", title: "고려 금오위와 현대 경찰제도 비교 고찰", detail: "한국사" },
+                        { time: "2-1", title: "조선 면제배갑과 현대 방탄복 소재 발전사", detail: "화학I" },
+                        { time: "3-1", title: "피의자 신상 공개 찬반 및 제도적 기준 고찰", detail: "사회문제탐구" }
+                    ]
+                }
+            ],
+            competenceTree: {
+                nodes: [
+                    { id: "root", label: "학생A 핵심 역량", level: 0 },
+                    // level 1: 6대 핵심 역량군 (graph의 competence 노드와 100% 일치)
+                    { id: "c1", label: "과학수사 및 법화학 탐구력", level: 1 },
+                    { id: "c2", label: "형사사법 및 인권윤리 분석력", level: 1 },
+                    { id: "c3", label: "수리통계 및 알고리즘 검증력", level: 1 },
+                    { id: "c4", label: "디지털 포렌식 및 사이버보안 통찰력", level: 1 },
+                    { id: "c5", label: "심리인지 및 위기협상 소통력", level: 1 },
+                    { id: "c6", label: "신체조절 및 현장대응 실행력", level: 1 },
+
+                    // level 2: 세부 입증 활동 및 프로젝트
+                    { id: "a1", label: "루미놀 위양성 2차 검증 실험", level: 2 },
+                    { id: "a2", label: "방탄소재 및 잠재지문 탄소 분석", level: 2 },
+                    { id: "a3", label: "DNA 페노타이핑 기본권 절충안", level: 2 },
+
+                    { id: "a4", label: "공권력 한계 및 과잉진압 판례 분석", level: 2 },
+                    { id: "a5", label: "스토킹 전자발찌 정책 제안", level: 2 },
+                    { id: "a6", label: "디지털 성범죄 피해 구제 법제화", level: 2 },
+                    { id: "a7", label: "신경과학 기반 형사책임론 규명", level: 2 },
+
+                    { id: "a8", label: "베이지안 스토킹 재범 예측 모델 설계", level: 2 },
+                    { id: "a9", label: "범죄 예측 알고리즘 차별 구조 수학 모델링", level: 2 },
+                    { id: "a10", label: "페르미 추정 기반 범죄건수 산출", level: 2 },
+
+                    { id: "a11", label: "다크웹 익명성 및 라이브 메모리 포렌식", level: 2 },
+                    { id: "a12", label: "선거 범죄 AI 다중탐지 방안 제안", level: 2 },
+                    { id: "a13", label: "사이버 폭력 댓글 경찰 개입 분석", level: 2 },
+
+                    { id: "a14", label: "위기 협상 화법 및 적극적 경청 전략", level: 2 },
+                    { id: "a15", label: "PEACE 기법 및 인지 면담법 제안", level: 2 },
+                    { id: "a16", label: "행동증거분석 및 프로파일링 한계 분석", level: 2 },
+
+                    { id: "a17", label: "왕복달리기 심폐지구력 및 순발력 체화", level: 2 },
+                    { id: "a18", label: "밸런스보드 코어 조절 및 현장 대처력", level: 2 }
+                ],
+                edges: [
+                    { from: "root", to: "c1" }, { from: "root", to: "c2" }, { from: "root", to: "c3" },
+                    { from: "root", to: "c4" }, { from: "root", to: "c5" }, { from: "root", to: "c6" },
+                    
+                    { from: "c1", to: "a1" }, { from: "c1", to: "a2" }, { from: "c1", to: "a3" },
+                    { from: "c2", to: "a4" }, { from: "c2", to: "a5" }, { from: "c2", to: "a6" }, { from: "c2", to: "a7" },
+                    { from: "c3", to: "a8" }, { from: "c3", to: "a9" }, { from: "c3", to: "a10" },
+                    { from: "c4", to: "a11" }, { from: "c4", to: "a12" }, { from: "c4", to: "a13" },
+                    { from: "c5", to: "a14" }, { from: "c5", to: "a15" }, { from: "c5", to: "a16" },
+                    { from: "c6", to: "a17" }, { from: "c6", to: "a18" }
+                ]
+            },
+            evidence: [
+                {
+                    title: "루미놀 위양성 2차 검증 실험",
+                    type: "3학년 융합탐구",
+                    semester: "3-1",
+                    text: "과학수사 분야에 대한 호기심으로 '혈흔 제거 조건에 따른 루미놀 반응의 신뢰성 분석'을 기획함. <span class='highlight'>표백제의 위양성 유발을 확인한 후 6시간 이상 경과 시 위양성 반응이 급격히 감소하고 실제 혈흔 부위로 반응이 수렴한다는 결론</span>을 도출하여 사법적 오판 방지를 위한 보조적 증거 효력과 교차 검증 필요성을 제시함."
+                },
+                {
+                    title: "베이지안 스토킹 재범 예측 모델 설계",
+                    type: "확률과 통계",
+                    semester: "3-1",
+                    text: "'베이지안 스토킹 재범 예측 모델 설계'를 주제로 탐구하여 조건부확률과 베이즈 정리가 재범 판단에 활용되는 원리를 분석함. <span class='highlight'>초기 재범 확률 50%에서 지속적 연락, 주거지 배회 등 정보 갱신에 따라 77.27%, 94.77%, 98.19%, 99.90%로 갱신되는 과정을 정밀 계산</span>하여 경찰 데이터 활용 가능성을 제시함."
+                },
+                {
+                    title: "다크웹 익명성 구조 및 포렌식 탐구",
+                    type: "3학년 동아리",
+                    semester: "3-1",
+                    text: "토르 네트워크, 해외 서버 분산, 가상화폐 믹싱 등 다크웹의 익명성 구조를 분석함. <span class='highlight'>시스템 재부팅 전 RAM에서 암호화 키와 실시간 접속 흔적을 확보하는 라이브 메모리 포렌식과 해시값 무결성 검증, 블록체인 거래 추적</span> 등 첨단 과학수사 대안을 발표함."
+                },
+                {
+                    title: "신경과학 기반 형사책임론 탐구",
+                    type: "3학년 자율활동",
+                    semester: "3-1",
+                    text: "중뇌 변연계 보상회로와 전전두엽 충동조절 저하를 분석함. <span class='highlight'>fMRI 증거의 의학적 객관성에도 불구하고 기계적 판단 오류 위험과 형법 제10조 감형 제한의 규범적 한계를 인식</span>하고 맞춤형 치료 및 재활 병행을 제언함."
+                },
+                {
+                    title: "경찰 공권력 한계 및 과잉진압 판례 분석",
+                    type: "2학년 자율활동",
+                    semester: "2-1",
+                    text: "국내외 신문 기사 및 판례를 분석하여 과잉 진압 논란의 구조적 원인을 고찰함. <span class='highlight'>공공의 안전을 위한 공권력 집행과 용의자의 인권 보장이 충돌할 때 윤리적 균형 감각이 필수적임</span>을 도출하고 논리적인 활동지로 정리함."
+                },
+                {
+                    title: "범죄 예측 알고리즘 차별 구조 수학 모델링",
+                    type: "2학년 진로활동",
+                    semester: "2-2",
+                    text: "CCTV 사각지대와 단속 편차가 특정 계층 적발률을 높이고, <span class='highlight'>알고리즘이 이를 위험 신호로 인지해 순찰을 강화하며 다시 적발 건수가 늘어나는 악순환을 수학적 모델로 파악</span>하여 통계적 공정성 결여와 경찰의 윤리적 통제 필요성을 제기함."
+                },
+                {
+                    title: "위기 협상 화법 및 적극적 경청 분석",
+                    type: "화법과 작문",
+                    semester: "3-1",
+                    text: "경찰의 위기 상황 대화 전략을 탐구함. <span class='highlight'>적극적 경청, 나-메시지, 감정 정의하기와 더불어 개방형 질문(상황·감정 원인 파악)과 폐쇄형 질문(신속 정보 확인)의 기능을 비교 분석</span>하여 의사소통 역량이 경찰의 핵심 직무임을 밝힘."
+                },
+                {
+                    title: "디지털 성범죄 피해 구제 법제도 제안",
+                    type: "정치와 법",
+                    semester: "3-1",
+                    text: "민법 제750조 불법행위 책임의 한계를 분석함. <span class='highlight'>플랫폼 기업의 불법합성물 신속 삭제 의무화, 국가 우선 피해 구제 후 가해자 구상권 행사, 민법 제755조 감독자 책임 확대</span>를 제시하며 회복적 사법 관점의 법 개정을 설득력 있게 제안함."
+                },
+                {
+                    title: "지리적 프로파일링 및 BEA 한계 분석",
+                    type: "3학년 진로활동",
+                    semester: "3-1",
+                    text: "'나비 사냥'을 읽고 <span class='highlight'>행동증거분석(BEA)과 지리적 프로파일링의 원리를 파악하되, 사건이 조직 범죄일 때 지리적 프로파일링의 적용 한계가 있음을 비판적으로 고찰</span>하며 과학기술 기반 과학수사의 윤리적 과제를 제시함."
+                },
+                {
+                    title: "스토킹 재범 방지 전자발찌 정책 제안",
+                    type: "2학년 동아리",
+                    semester: "2-1",
+                    text: "스토킹 범죄 반복 사례와 제도의 한계를 분석함. <span class='highlight'>보호명령 실효성 부족을 극복하기 위해 경찰 보호명령 강화 및 위치추적 전자장치 부착 의무화를 제안</span>하며 피해자 안전과 가해자 인권 균형을 고려한 법원 연계 정책을 설계함."
+                },
+                {
+                    title: "체력훈련 및 스포츠 상황판단 실천",
+                    type: "체육 / 운동과 건강",
+                    semester: "3-1",
+                    text: "제자리멀리뛰기 도약 순발력 향상과 <span class='highlight'>밸런스보드 코어 안정성 훈련을 통해 신체 조절 능력을 함양하고, 긴박한 상황에서 신속한 판단과 대응이 요구되는 경찰 직무 역량</span>을 체화함."
+                },
+                {
+                    title: "학급 자치 및 스터디그룹 협력 조력",
+                    type: "행동특성 및 종합의견",
+                    semester: "2-2",
+                    text: "수업 시간 적극적 질문과 <span class='highlight'>자발적 스터디그룹 조직을 통해 공동 성장을 이끌었으며, 피드백을 수용하여 타인의 견해를 경청하고 합의점을 도출하는 유연한 태도</span>로 발전함."
+                },
+                {
+                    title: "DNA 페노타이핑 및 기본권 충돌",
+                    type: "생활과 윤리",
+                    semester: "3-1",
+                    text: "얼굴 복원 수사기술인 DNA 페노타이핑을 사례로 <span class='highlight'>공익과 개인정보 자기결정권의 충돌을 벤담의 공리주의, 칸트의 의무론, 롤스의 정의론으로 분석</span>하고 수사 참고용 제한적 활용이라는 절충안을 정당화함."
+                },
+                {
+                    title: "PEACE 기법 및 인지 면담법 제안",
+                    type: "심리학",
+                    semester: "3-1",
+                    text: "로프터스의 오정보 효과 실험을 분석하고 <span class='highlight'>'PEACE 면담 기법'과 '인지 면담법'을 도입하여 확증 편향과 기억 왜곡 등 진술 오염을 최소화</span>하고 공정한 판단을 돕는 면담 절차를 설계함."
+                },
+                {
+                    title: "마약 범죄 실태 분석 및 재활병동 제언",
+                    type: "1학년 자율활동",
+                    semester: "1-1",
+                    text: "청소년 마약 범죄 심각성을 고발하고, <span class='highlight'>마약 방지 병동 증설과 의료인 지원 강화를 제언</span>함."
+                },
+                {
+                    title: "안락사 토론 및 헌법상 자기결정권 주장",
+                    type: "1학년 자율활동",
+                    semester: "1-1",
+                    text: "안락사 찬성 토론에서 <span class='highlight'>헌법에 근거한 신체의 자유 및 자기결정권을 논리적으로 입증</span>함."
+                },
+                {
+                    title: "범죄 기사 스크랩 및 소시오패스 분석",
+                    type: "1학년 동아리",
+                    semester: "1-1",
+                    text: "신문기사를 수집해 <span class='highlight'>소시오패스와 사이코패스의 범죄성향 차이 및 유전 vs 환경 요인을 분석</span>함."
+                },
+                {
+                    title: "다중지능 검사 및 경찰 로드맵 구축",
+                    type: "1학년 진로활동",
+                    semester: "1-1",
+                    text: "인간친화·신체운동·공간지능 강점을 바탕으로 <span class='highlight'>현장 구조화와 공감을 실천하는 경찰 진로 로드맵을 확립</span>함."
+                },
+                {
+                    title: "영화 '컨택트' 연계 소통윤리 화용론 프로젝트",
+                    type: "1학년 융합세특",
+                    semester: "1-2",
+                    text: "'컨택트'를 분석해 <span class='highlight'>소통을 상대에 대한 진정한 이해로 정의하고 화용론 기반 맞춤형 상담 AI와 롤스·하버마스 합의 원칙</span>을 도출함."
+                },
+                {
+                    title: "방탄소재 및 잠재지문 탄소 분석",
+                    type: "화학I / 통합과학",
+                    semester: "2-1",
+                    text: "지문 채취 속 탄소 원소 카드를 제작하고, <span class='highlight'>조선 면제배갑부터 현대 케블라, UHMWPE 등 방탄 합성섬유 발전사</span>를 체계적으로 규명함."
+                },
+                {
+                    title: "선거 범죄 AI 다중탐지 방안 제안",
+                    type: "사회문제 탐구",
+                    semester: "3-1",
+                    text: "선거 범죄의 해외 서버 분산 및 익명성 한계를 극복하기 위해 <span class='highlight'>AI 다중 탐지 모델 및 SNS 기반 사전 차단 시스템 구축</span>을 제안함."
+                },
+                {
+                    title: "증오 범죄 심각성 및 사회적 연대 촉구 영문 기사",
+                    type: "영어 독해와 작문",
+                    semester: "3-1",
+                    text: "샌디에이고 사건 등을 분석하며 <span class='highlight'>증오 범죄 해결을 위해 교육과 법률의 균형 및 시민 사회의 연대가 필수적임을 영어 기사로 완성</span>함."
+                }
+            ],
+            wiki: [
+                { term: "루미놀 반응 (Luminol Reaction)", desc: "혈흔 속 헤모글로빈(철 이온)이 과산화수소와 만나 화학 발광을 일으키는 원리. 학생A는 표백제 등에 의한 위양성 반응을 통제하기 위해 시간 경과에 따른 2차 검증 실험을 설계하여 과학수사의 증거 능력을 검증했습니다." },
+                { term: "베이지안 추론 (Bayesian Inference)", desc: "새로운 증거가 수집될 때마다 사전 확률을 사후 확률로 갱신하는 조건부확률 수학 이론. 학생A는 스토킹 가해자의 배회, 연락 등 행동 징후에 따라 재범 확률이 50%에서 99.9%로 단계적 갱신되는 예측 모델을 구현했습니다." },
+                { term: "라이브 메모리 포렌식 (Live Memory Forensic)", desc: "휘발성 메모리(RAM)에 남아 있는 실시간 프로세스, 암호화 키, 네트워크 연결 흔적을 수집하는 디지털 수사 기법. 다크웹의 토르 네트워크 및 가상화폐 믹싱으로 인한 추적 제약을 돌파하는 실질적 대안으로 제시되었습니다." },
+                { term: "PEACE 면담 기법 및 인지 면담", desc: "수사관의 확증 편향과 유도신문을 배제하고, 기억 재생을 돕는 중립적 질문을 통해 목격자 및 피해자의 진술 오염을 최소화하는 선진 수사 인터뷰 기법입니다." },
+                { term: "DNA 페노타이핑 (DNA Phenotyping)", desc: "현장 DNA 정보로부터 개인의 외모, 피부색, 안면 윤곽 등을 추정·복원하는 첨단 생명공학 수사기술. 범죄 해결의 공익과 유전정보 자기결정권의 충돌 쟁점을 낳습니다." },
+                { term: "회복적 사법 (Restorative Justice)", desc: "가해자에 대한 단순 응보적 처벌을 넘어, 피해자의 실질적 권리 회복과 일상 복귀, 공동체 신뢰 회복을 궁극적 목표로 삼는 현대 사법 패러다임입니다." },
+                { term: "통계적 공정성 (Statistical Fairness)", desc: "알고리즘이 학습하는 과거 데이터 자체에 내재된 차별이나 단속 편차가 새로운 차별적 결과를 재생산하지 않도록 통계적으로 보정하는 기계학습 윤리 기준입니다." },
+                { term: "신경범죄학 (Neurocriminology)", desc: "뇌 영상(fMRI)과 신경 전달 물질 연구를 통해 충동 조절 장애 및 반사회적 행동의 신경생물학적 원인을 분석하고, 형사책임 판단 및 치료적 처우를 연구하는 학문입니다." }
+            ],
+            classification: [
+                { original: "1학년 1학기 자율활동", title: "마약 범죄 실태 분석 및 재활병동 증설 제언", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 자율활동", title: "안락사 찬성 토론 및 신체의 자유 주장", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 동아리활동", title: "사이코패스·소시오패스 성향 비교 기사 분석", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 동아리활동", title: "포텐셜 기초체력 및 달리기 기록 단축 훈련", semester: "1-1", category: "예체능계열" },
+                { original: "1학년 1학기 진로활동", title: "다중지능 기반 경찰 직무 적합성 분석", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 국어", title: "과학자의 연구 자유 보장 범위 서평 작성", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 수학", title: "대수 막대 다항식 나눗셈 및 달력 항등식", semester: "1-1", category: "자연계열" },
+                { original: "1학년 1학기 영어", title: "프로파일러 롤모델 소개 및 대중심리 분석", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 한국사", title: "훈민정음 창제 동기 및 세종 애민정신 고찰", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 통합사회", title: "지역 상권 변화 및 아파트 주차난 대안 모색", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 통합과학", title: "DNA칩 기사 분석 및 생체나이 과학수사 연계", semester: "1-1", category: "의약계열" },
+                { original: "1학년 1학기 과학탐구실험", title: "물체 충돌 운동에너지 연역적 통제 실험", semester: "1-1", category: "자연계열" },
+                { original: "1학년 1학기 기술가정", title: "경찰 맞춤형 자율주행 모빌리티 제도 설계", semester: "1-1", category: "공학계열" },
+                { original: "1학년 1학기 진로직업", title: "경찰 핵심역량 및 직업가치관 정립", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 미술", title: "경찰-미술 연계 몽타주 및 프로파일링 소개", semester: "1-1", category: "예체능계열" },
+                { original: "1학년 2학기 진로활동", title: "'누가 진짜 범인인가' 프로파일링 보고서", semester: "1-2", category: "사회계열" },
+                { original: "1학년 2학기 수학", title: "갱단 범죄 명제 분석 및 힐베르트 호텔 역설", semester: "1-2", category: "자연계열" },
+                { original: "1학년 2학기 한국사", title: "고려 금오위와 현대 경찰제도 비교", semester: "1-2", category: "인문계열" },
+                { original: "1학년 2학기 통합과학", title: "잠재지문 채취 탄소 원소 분석 및 친환경도시", semester: "1-2", category: "자연계열" },
+                { original: "1학년 2학기 과탐실", title: "자유낙하 운동실험 및 갈릴레이 사고실험", semester: "1-2", category: "자연계열" },
+                { original: "1학년 2학기 융합프로젝트", title: "영화 '컨택트' 연계 소통윤리 및 맞춤상담 AI", semester: "1-2", category: "인문계열" },
+                { original: "2학년 1학기 자율활동", title: "경찰 공권력 행사와 인권침해 갈등 탐구", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 동아리활동", title: "스토킹 범죄 재범방지 전자발찌 부착 정책", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 진로활동", title: "전문 부서 간 협력 치안 모델 및 캠페인 구상", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 문학", title: "최치원·이상화 시 비교 및 지식인 소외감 고찰", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 수학I", title: "역사 속 등차수열 풀이 및 대안 제시", semester: "2-1", category: "자연계열" },
+                { original: "2학년 1학기 영어I", title: "한·미 경찰 조직 및 공권력 비교 발표", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 사회문화", title: "성폭력에 따른 경찰 대응책 및 제도개선", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 화학I", title: "면제배갑부터 케블라까지 방탄복 소재 탐구", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 화학I", title: "루미놀 화학발광 산화-촉매 메커니즘 분석", semester: "2-1", category: "자연계열" },
+                { original: "2학년 1학기 정보", title: "빅데이터 AI 윤리 및 디지털 리터러시", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 일본어I", title: "일본 경찰 권한과 검사 기소율 문화 분석", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 수학과제탐구", title: "죄수의 딜레마 게임이론 및 범죄 심리 분석", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 수학과제탐구", title: "페르미 추정을 통한 하루 범죄 발생건수 추정", semester: "2-1", category: "자연계열" },
+                { original: "2학년 2학기 진로활동", title: "범죄 예측 알고리즘 차별 구조 수학 모델링", semester: "2-2", category: "공학계열" },
+                { original: "2학년 2학기 독서", title: "도덕적 원칙·자유·다원주의 갈등 해결 전략", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 수학II", title: "최적화 함수 설계 및 미분가능성 정합성 입증", semester: "2-2", category: "자연계열" },
+                { original: "2학년 2학기 영어II", title: "사이버 폭력 댓글 경찰 개입 타당성 실험", semester: "2-2", category: "사회계열" },
+                { original: "2학년 2학기 윤리와사상", title: "칸트 인간존엄성과 롤스 시민불복종 공직윤리", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 생명과학I", title: "도파민 보상회로와 전전두엽 마약 중독 메커니즘", semester: "2-2", category: "의약계열" },
+                { original: "2학년 2학기 융합프로젝트", title: "굴 패각 순환활용 실험 및 환경정책 보고서", semester: "2-2", category: "자연계열" },
+                { original: "2학년 2학기 진로영어", title: "사회정의 실현을 위한 전문 경찰관 비전 에세이", semester: "2-2", category: "인문계열" },
+                { original: "3학년 1학기 자율활동", title: "신경과학 기반 형사사법 체계 및 심신장애 책임론", semester: "3-1", category: "의약계열" },
+                { original: "3학년 1학기 동아리활동", title: "다크웹 익명성 및 라이브 메모리 포렌식 탐구", semester: "3-1", category: "공학계열" },
+                { original: "3학년 1학기 동아리활동", title: "블록체인 거래 추적 및 AI 이상행위 탐지 제시", semester: "3-1", category: "공학계열" },
+                { original: "3학년 1학기 진로활동", title: "'나비 사냥' 행동증거분석 및 프로파일링 한계", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 화법과작문", title: "경찰 위기 협상 화법 및 적극적 경청 전략", semester: "3-1", category: "교육계열" },
+                { original: "3학년 1학기 확률과통계", title: "베이지안 스토킹 재범 예측 모델 설계", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 영어독해와작문", title: "증오 범죄 심각성 및 사회적 연대 촉구 영문 기사", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 정치와법", title: "주민등록번호 변경제한 과잉금지원칙 위배 분석", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 정치와법", title: "디지털 성범죄 피해자 구제 및 회복적 사법", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 생활과윤리", title: "DNA 페노타이핑(얼굴복원) 기본권 충돌 절충안", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 심리학", title: "로프터스 오정보 효과 및 PEACE 인지면담법", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 융합탐구", title: "루미놀 반응 표백제 위양성 2차 시간경과 검증", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 사회문제탐구", title: "피의자 얼굴 공개 찬반 및 법적 원칙 비평문", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 사회문제탐구", title: "선거 범죄 AI 다중탐지 및 포렌식 연계 방안", semester: "3-1", category: "공학계열" },
+                { original: "3학년 1학기 운동과건강", title: "제자리멀리뛰기 순발력 및 코어 밸런스 체화", semester: "3-1", category: "예체능계열" }
+            ]
+        };
+
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contents = document.querySelectorAll('.tab-content');
+        
+        let network1, network2 = null;
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const targetId = tab.dataset.target;
+                const targetContent = document.getElementById(targetId);
+                targetContent.classList.add('active');
+
+                if(targetId === 'tab-graph' && network1) network1.fit();
+                if(targetId === 'tab-tree' && network2) network2.fit();
+                if(targetId === 'tab-reclass') {
+                    setTimeout(drawMappingConnections, 50);
+                }
+            });
+        });
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline-render');
+            let html = '';
+            studentData.timeline.forEach(gradeObj => {
+                html += `<div class="grade-col">
+                            <div class="grade-header">${gradeObj.grade}</div>
+                            <div class="semester-row">`;
+                gradeObj.semesters.forEach(sem => {
+                    html += `<div class="semester-col">
+                                <div class="semester-title">${sem.term}</div>`;
+                    sem.activities.forEach(act => {
+                        html += `<div class="act-card">
+                                    <div class="tag-wrap" style="margin-bottom:8px;">
+                                        <span class="tag" style="background:var(--primary-color); color:var(--white); border:none;">${act.type}</span>
+                                        <span class="tag">${act.semester}</span>
+                                    </div>
+                                    <div class="act-title">${act.title}</div>
+                                 </div>`;
+                    });
+                    html += `</div>`;
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderStory() {
+            const container = document.getElementById('story-render');
+            let html = '';
+            studentData.story.forEach(s => {
+                html += `<div class="story-box">
+                            <div class="tag-wrap" style="margin-bottom:10px;"><span class="tag">${s.type}</span></div>
+                            <div class="story-title">${s.title}</div>
+                            <div class="story-ai">${s.interpretation}</div>
+                            <div class="story-flow">`;
+                s.steps.forEach((step, idx) => {
+                    html += `<div class="story-node">
+                                <span class="time">${step.time} &middot; ${step.detail}</span>
+                                <div class="act-title" style="margin:0; font-size:15px;">${step.title}</div>
+                             </div>`;
+                    if(idx < s.steps.length - 1) {
+                        html += `<div class="story-arrow">➔</div>`;
+                    }
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderEvidenceAndWiki() {
+            const evContainer = document.getElementById('evidence-render');
+            let evHtml = '';
+            studentData.evidence.forEach(ev => {
+                evHtml += `<div class="evidence-card">
+                            <div class="tag-wrap" style="margin-bottom:12px;">
+                                <span class="tag" style="background:var(--primary-color); color:var(--white); border:none; font-size:12px;">${ev.type}</span>
+                                <span class="tag" style="font-size:12px;">${ev.semester}</span>
+                            </div>
+                            <h4>${ev.title}</h4>
+                            <div class="evidence-text">"${ev.text}"</div>
+                           </div>`;
+            });
+            evContainer.innerHTML = evHtml;
+
+            const wContainer = document.getElementById('wiki-render');
+            let wHtml = '';
+            studentData.wiki.forEach(w => {
+                wHtml += `<div class="evidence-card" style="padding:20px;">
+                            <h4 style="margin-bottom:8px; font-size:15px; color:var(--primary-color);">${w.term}</h4>
+                            <div style="font-size:14px; color:var(--text-dark);">${w.desc}</div>
+                          </div>`;
+            });
+            wContainer.innerHTML = wHtml;
+        }
+
+        function renderClassification() {
+            const leftGroups = {};
+            const rightGroups = {};
+            
+            const categories = ["인문계열", "사회계열", "교육계열", "자연계열", "공학계열", "의약계열", "예체능계열", "기타"];
+            categories.forEach(c => rightGroups[c] = []);
+
+            studentData.classification.forEach((item, index) => {
+                const id = `map-item-${index}`;
+                item._id = id; 
+                
+                if(!leftGroups[item.original]) leftGroups[item.original] = [];
+                leftGroups[item.original].push(item);
+                
+                let cat = item.category;
+                if(!cat.includes("계열")) cat += "계열";
+                if(!rightGroups[cat]) rightGroups[cat] = [];
+                rightGroups[cat].push(item);
+            });
+
+            // 좌측 (기록 영역)
+            let leftHtml = '';
+            Object.keys(leftGroups).forEach(groupName => {
+                leftHtml += `<div class="map-group"><div class="map-group-title">${groupName}</div>`;
+                leftGroups[groupName].forEach(item => {
+                    leftHtml += `<div class="map-item left-item" id="left-${item._id}" data-target="right-${item._id}">
+                                    ${item.title}
+                                 </div>`;
+                });
+                leftHtml += `</div>`;
+            });
+            document.getElementById('map-left').innerHTML = leftHtml;
+
+            // 우측 (8대 계열)
+            let rightHtml = '';
+            categories.forEach(groupName => {
+                if(rightGroups[groupName] && rightGroups[groupName].length > 0) {
+                    rightHtml += `<div class="map-group"><div class="map-group-title" style="border-color:var(--primary-color); color:var(--primary-color);">${groupName}</div>`;
+                    rightGroups[groupName].forEach(item => {
+                        rightHtml += `<div class="map-item right-item" id="right-${item._id}">
+                                        ${item.title} <span class="time-tag">${item.semester}</span>
+                                     </div>`;
+                    });
+                    rightHtml += `</div>`;
+                }
+            });
+            document.getElementById('map-right').innerHTML = rightHtml;
+        }
+
+        function drawMappingConnections() {
+            const svg = document.getElementById('mapping-svg');
+            const wrap = document.querySelector('.mapping-container');
+            
+            svg.style.width = '100%';
+            svg.style.height = wrap.scrollHeight + 'px';
+            svg.innerHTML = ''; 
+
+            const svgRect = svg.getBoundingClientRect();
+            const leftItems = document.querySelectorAll('.left-item');
+            
+            leftItems.forEach(leftNode => {
+                const targetId = leftNode.dataset.target;
+                const rightNode = document.getElementById(targetId);
+                
+                if (rightNode) {
+                    const lRect = leftNode.getBoundingClientRect();
+                    const rRect = rightNode.getBoundingClientRect();
+
+                    const startX = lRect.right - svgRect.left;
+                    const startY = lRect.top + (lRect.height / 2) - svgRect.top;
+                    const endX = rRect.left - svgRect.left;
+                    const endY = rRect.top + (rRect.height / 2) - svgRect.top;
+
+                    const controlPointX = (startX + endX) / 2;
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${startX} ${startY} C ${controlPointX} ${startY}, ${controlPointX} ${endY}, ${endX} ${endY}`);
+                    path.setAttribute('stroke', '#E6DDD6');
+                    path.setAttribute('stroke-width', '1.5');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('class', 'map-path');
+                    path.style.transition = '0.2s';
+                    
+                    svg.appendChild(path);
+
+                    leftNode.addEventListener('mouseenter', () => highlightPath(path, rightNode));
+                    leftNode.addEventListener('mouseleave', () => resetPath(path, rightNode));
+                    rightNode.addEventListener('mouseenter', () => highlightPath(path, leftNode));
+                    rightNode.addEventListener('mouseleave', () => resetPath(path, leftNode));
+                }
+            });
+        }
+
+        function highlightPath(path, relatedNode) {
+            path.setAttribute('stroke', '#8C6A50');
+            path.setAttribute('stroke-width', '3');
+            relatedNode.classList.add('hovered');
+            path.parentNode.appendChild(path);
+        }
+        function resetPath(path, relatedNode) {
+            path.setAttribute('stroke', '#E6DDD6');
+            path.setAttribute('stroke-width', '1.5');
+            relatedNode.classList.remove('hovered');
+        }
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('tab-reclass').classList.contains('active')) {
+                drawMappingConnections();
+            }
+        });
+
+        function initNetworks() {
+            const groupStyles = {
+                student: { color: { background: '#8C6A50', border: '#70543F' }, font: {color: '#FFFFFF', size: 18} },
+                interest: { color: { background: '#F4D03F', border: '#D4AC0D' }, font: {color: '#332B25'} },
+                activity: { color: { background: '#5DADE2', border: '#2874A6' }, font: {color: '#FFFFFF'} },
+                competence: { color: { background: '#58D68D', border: '#239B56' }, font: {color: '#FFFFFF'} },
+                concept: { color: { background: '#AF7AC5', border: '#76448A' }, font: {color: '#FFFFFF'} },
+                lesson: { color: { background: '#EB984E', border: '#CA6F1E' }, font: {color: '#FFFFFF'} }
+            };
+
+            const defaultNodeStyle = {
+                shape: 'box', margin: 12, borderWidth: 2,
+                font: { color: '#332B25', size: 14, face: 'Pretendard', multi: true, bold: true },
+                shadow: { enabled: true, color: 'rgba(0,0,0,0.08)', size: 8, x: 2, y: 3 }
+            };
+
+            // 1. 키워드 노드표 생성
+            const container1 = document.getElementById('network-container');
+            const nodes1 = new vis.DataSet(studentData.graph.nodes.map(n => ({
+                ...n, ...defaultNodeStyle, 
+                ...(groupStyles[n.group] || { color: { background: '#F4EFEB', border: '#D4C3B3'} })
+            })));
+            
+            const edges1 = new vis.DataSet(studentData.graph.edges.map(e => ({
+                ...e,
+                color: e.dashes ? '#A8866C' : '#8C6A50',
+                width: e.dashes ? 1 : 3,
+                smooth: { type: 'continuous' }
+            })));
+
+            const options1 = {
+                interaction: { hover: true, tooltipDelay: 200 },
+                physics: {
+                    stabilization: { enabled: true, iterations: 180 }, 
+                    barnesHut: { 
+                        gravitationalConstant: -2200, 
+                        centralGravity: 0.2, 
+                        springLength: 190, 
+                        springConstant: 0.02, 
+                        damping: 0.25 
+                    }
+                }
+            };
+            network1 = new vis.Network(container1, {nodes: nodes1, edges: edges1}, options1);
+            
+            // 만다라트 클릭 효과
+            network1.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    const selectedNode = params.nodes[0];
+                    const connectedNodes = network1.getConnectedNodes(selectedNode);
+                    connectedNodes.push(selectedNode);
+
+                    const allNodes = nodes1.get();
+                    nodes1.update(allNodes.map(node => ({
+                        id: node.id,
+                        opacity: connectedNodes.includes(node.id) ? 1 : 0.12
+                    })));
+                    
+                    const allEdges = edges1.get();
+                    edges1.update(allEdges.map(edge => ({
+                        id: edge.id,
+                        opacity: (edge.from === selectedNode || edge.to === selectedNode) ? 1 : 0.05
+                    })));
+                } else {
+                    nodes1.update(nodes1.get().map(node => ({ id: node.id, opacity: 1 })));
+                    edges1.update(edges1.get().map(edge => ({ id: edge.id, opacity: 1 })));
+                }
+            });
+
+            // 4. 역량 트리 생성 (좌 -> 우 계층형)
+            const container2 = document.getElementById('tree-container');
+            const nodes2 = new vis.DataSet(studentData.competenceTree.nodes.map(n => {
+                let bg = n.level === 0 ? '#8C6A50' : (n.level === 1 ? '#D4C3B3' : '#FDFBF7');
+                let bc = n.level === 0 ? '#70543F' : (n.level === 1 ? '#A8866C' : '#E6DDD6');
+                let fc = n.level === 0 ? '#FFFFFF' : '#332B25';
+                return {...n, ...defaultNodeStyle, color: {background: bg, border: bc}, font: {color: fc}};
+            }));
+            const edges2 = new vis.DataSet(studentData.competenceTree.edges);
+            const options2 = {
+                layout: { hierarchical: { direction: "LR", sortMethod: "directed", levelSeparation: 320, nodeSpacing: 80 } },
+                edges: { smooth: { type: "cubicBezier", forceDirection: "horizontal" }, color: '#D4C3B3', width: 2 },
+                physics: false,
+                interaction: { dragNodes: false }
+            };
+            network2 = new vis.Network(container2, {nodes: nodes2, edges: edges2}, options2);
+        }
+
+        window.onload = () => {
+            renderTimeline();
+            renderStory();
+            renderEvidenceAndWiki();
+            renderClassification();
+            initNetworks();
+        };
+    </script>
+</body>
+</html>
