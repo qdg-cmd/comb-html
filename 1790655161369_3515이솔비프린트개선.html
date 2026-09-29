@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>살아있는 생기부 심층 시각화 리포트 - 학생A</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* 신뢰감을 주는 베이지 & 브라운 어반 톤 */
+            --bg-color: #FDFBF7;
+            --primary-color: #8C6A50;
+            --primary-light: #A8866C;
+            --secondary-color: #E6DDD6;
+            --secondary-light: #F4EFEB;
+            --text-dark: #332B25;
+            --text-muted: #7A7068;
+            --white: #FFFFFF;
+            --highlight: rgba(140, 106, 80, 0.22);
+            --accent-green: #2E7D32;
+            --accent-blue: #1976D2;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); line-height: 1.6; overflow-y: auto; }
+
+        header {
+            background-color: var(--white); padding: 22px 40px;
+            border-bottom: 2px solid var(--secondary-color);
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .title-area h1 { font-size: 22px; color: var(--primary-color); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .title-area h1::before { content: ''; display: inline-block; width: 14px; height: 14px; background: #C4F000; border-radius: 50%; border: 2px solid var(--text-dark); }
+        .title-area p { font-size: 13.5px; color: var(--text-muted); margin-top: 4px; }
+        .btn-print { background-color: var(--primary-color); color: var(--white); border: none; padding: 10px 22px; border-radius: 20px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; box-shadow: 0 2px 6px rgba(140,106,80,0.25); }
+        .btn-print:hover { background-color: #70543F; }
+
+        .tabs { display: flex; gap: 24px; padding: 0 40px; background-color: var(--white); border-bottom: 1px solid var(--secondary-color); overflow-x: auto; position: sticky; top: 78px; z-index: 99; }
+        .tab-btn { background: none; border: none; padding: 16px 4px; font-size: 15px; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; white-space: nowrap; transition: color 0.2s; }
+        .tab-btn.active { color: var(--text-dark); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background-color: var(--primary-color); }
+
+        main { padding: 40px; max-width: 1680px; margin: 0 auto; min-height: calc(100vh - 160px); height: auto; }
+        .tab-content { display: none; height: auto; animation: fadeIn 0.3s ease-in-out; padding-bottom: 60px; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .section-desc { font-size: 15px; color: var(--text-muted); margin-bottom: 25px; line-height: 1.7; background: #FAF7F2; padding: 16px 20px; border-radius: 10px; border-left: 4px solid var(--primary-color); }
+
+        .graph-container { width: 100%; height: 750px; background: var(--white); border-radius: 14px; border: 1px solid var(--secondary-color); box-shadow: 0 4px 18px rgba(0,0,0,0.03); }
+
+        .timeline-scroll { display: flex; gap: 24px; overflow-x: auto; padding-bottom: 25px; align-items: flex-start; }
+        .grade-col { flex: 0 0 520px; background: var(--white); border: 1px solid var(--secondary-color); border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 3px 12px rgba(0,0,0,0.02); }
+        .grade-header { background: var(--secondary-light); padding: 16px; text-align: center; font-weight: 700; font-size: 16px; color: var(--primary-color); border-bottom: 1px solid var(--secondary-color); border-radius: 14px 14px 0 0;}
+        .semester-row { display: flex; flex: 1; }
+        .semester-col { flex: 1; padding: 16px; border-right: 1px dashed var(--secondary-color); }
+        .semester-col:last-child { border-right: none; }
+        .semester-title { font-size: 13.5px; font-weight: 700; margin-bottom: 16px; color: var(--primary-light); text-align: center; background: #FAF7F2; padding: 6px 0; border-radius: 6px; }
+        
+        .act-card { background: var(--white); border: 1px solid var(--secondary-color); padding: 14px 15px; border-radius: 9px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); line-height: 1.45; transition: transform 0.15s, border-color 0.15s; }
+        .act-card:hover { transform: translateY(-2px); border-color: var(--primary-light); }
+        .act-title { font-weight: 600; font-size: 13.5px; margin-bottom: 8px; color: var(--text-dark); word-break: keep-all;}
+        .tag-wrap { display: flex; gap: 5px; flex-wrap: wrap; }
+        .tag { font-size: 11px; padding: 2px 7px; border-radius: 12px; background: var(--secondary-light); color: var(--text-muted); border: 1px solid var(--secondary-color); font-weight: 500; }
+
+        .story-container { display: flex; flex-direction: column; gap: 28px; }
+        .story-box { background: var(--white); border: 1px solid var(--secondary-color); border-radius: 14px; padding: 28px; box-shadow: 0 4px 15px rgba(0,0,0,0.025); }
+        .story-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        .story-title { font-size: 18.5px; font-weight: 700; color: var(--text-dark); }
+        .story-ai { background: var(--secondary-light); border-left: 4px solid var(--primary-color); padding: 16px 20px; border-radius: 0 10px 10px 0; margin-bottom: 24px; font-size: 14px; color: var(--text-dark); line-height: 1.7; }
+        .story-flow { display: flex; align-items: stretch; gap: 14px; overflow-x: auto; padding-bottom: 10px; }
+        .story-node { flex: 1; min-width: 230px; max-width: 320px; background: #FCFAF7; border: 1px solid var(--secondary-color); padding: 16px; border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+        .story-node .time { font-size: 12px; color: var(--primary-color); font-weight: 700; margin-bottom: 6px; display: block; }
+        .story-arrow { color: var(--primary-light); font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+
+        .evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 22px; align-items: stretch; }
+        .evidence-card { background: var(--white); border: 1px solid var(--secondary-color); border-radius: 12px; padding: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; }
+        .evidence-card h4 { font-size: 15px; margin-bottom: 12px; color: var(--text-dark); line-height: 1.45; font-weight: 700; }
+        .highlight { background-color: var(--highlight); padding: 1px 4px; border-radius: 3px; font-weight: 600; color: #5B3A29; }
+        .evidence-text { font-size: 13px; line-height: 1.8; color: var(--text-muted); background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px solid #EFEAE3; }
+
+        .mapping-container { display: flex; position: relative; min-height: 600px; align-items: stretch; }
+        .mapping-col { width: 440px; padding: 10px; z-index: 2; display: flex; flex-direction: column; gap: 24px; }
+        .mapping-canvas-wrap { flex: 1; position: relative; min-width: 140px; z-index: 1; }
+        #mapping-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .map-group-title { font-size: 14.5px; font-weight: 700; color: var(--text-dark); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--secondary-color); }
+        .map-item { background: var(--white); border: 1px solid var(--secondary-color); padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; transition: 0.18s; cursor: pointer; line-height: 1.35;}
+        .map-item .time-tag { float: right; font-size: 11.5px; color: var(--primary-light); font-weight: normal; background: var(--secondary-light); padding: 2px 7px; border-radius: 10px;}
+        .map-item.hovered { border-color: var(--primary-color); background: #FAF5F0; transform: scale(1.02); z-index: 10; box-shadow: 0 4px 10px rgba(140,106,80,0.15); }
+
+        .wiki-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 22px; }
+
+        /* =========================================
+           인쇄 전용 설정 (@media print) - 완벽 컴팩트 최적화
+           ========================================= */
+        @media print {
+            @page { size: A4 portrait; margin: 12mm; }
+            body { background: white; overflow: visible !important; font-size: 10pt !important; }
+            header .btn-print, .tabs, .section-desc { display: none !important; }
+            main { height: auto !important; padding: 0 !important; margin: 0 !important; max-width: none !important; min-height: 0 !important; display: block !important; }
+            
+            /* 1. 인쇄 대상 탭만 강제 노출 및 페이지 분할 */
+            .tab-content { display: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+            #tab-timeline, #tab-story, #tab-evidence, #tab-reclass { display: block !important; opacity: 1 !important; visibility: visible !important; }
+            
+            /* 페이지 구분 */
+            #tab-timeline, #tab-story, #tab-evidence { page-break-after: always; }
+            #tab-reclass { page-break-after: auto; }
+
+            /* 요소 도중 잘림 방지 */
+            .act-card, .story-box, .evidence-card, tr { page-break-inside: avoid !important; }
+            .timeline-scroll, .story-container, .evidence-grid { height: auto !important; overflow: visible !important; display: block !important; }
+            
+            /* 2. 학년간 활동(Timeline) - 가로 스크롤 제거 및 상하 컴팩트 여백 */
+            .timeline-scroll { margin-top: 0; }
+            .grade-col { width: 100% !important; margin-bottom: 15px !important; border: 1px solid var(--secondary-color) !important; box-shadow: none !important; flex: none !important; }
+            .grade-header { padding: 8px !important; font-size: 12pt !important; }
+            .semester-row { display: flex !important; }
+            .semester-col { padding: 10px !important; }
+            .semester-title { font-size: 11pt !important; margin-bottom: 8px !important; padding: 4px 0 !important; }
+            .act-card { padding: 8px 10px !important; margin-bottom: 8px !important; border-radius: 6px !important; box-shadow: none !important; }
+            .act-title { font-size: 10.5pt !important; margin-bottom: 4px !important; line-height: 1.35 !important; }
+            .tag { font-size: 8pt !important; padding: 1px 5px !important; }
+
+            /* 3. 주제 묶기(Story) - 효율적인 공간 배치 */
+            .story-container { gap: 15px !important; }
+            .story-box { padding: 15px !important; border-radius: 8px !important; box-shadow: none !important; }
+            .story-header { margin-bottom: 8px !important; }
+            .story-title { font-size: 13pt !important; }
+            .story-ai { padding: 10px 12px !important; margin-bottom: 12px !important; font-size: 10pt !important; line-height: 1.45 !important; }
+            .story-flow { gap: 8px !important; flex-wrap: wrap !important; }
+            .story-node { padding: 10px !important; min-width: 0 !important; max-width: none !important; flex: 1 1 0% !important; border-radius: 6px !important; }
+            .story-node .time { font-size: 9pt !important; margin-bottom: 4px !important; }
+            .story-node .act-title { font-size: 10pt !important; line-height: 1.35 !important; }
+            .story-arrow { display: none !important; }
+
+            /* 4. 원문 확인(Evidence) - 다단 그리드 압축 */
+            .evidence-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+            .evidence-card { padding: 14px !important; border-radius: 8px !important; box-shadow: none !important; }
+            .evidence-card h4 { font-size: 11pt !important; margin-bottom: 8px !important; }
+            .evidence-text { font-size: 10pt !important; padding: 10px !important; line-height: 1.45 !important; }
+
+            /* 5. 활동 분류(Reclass) - 엑셀(Table) 표 형태로 전환 및 계열별 셀 병합 */
+            .mapping-container { display: none !important; }
+            .print-reclass-table { display: table !important; width: 100%; border-collapse: collapse; margin-top: 0; }
+            .print-reclass-table th, .print-reclass-table td { border: 1px solid var(--secondary-color); padding: 8px 10px; text-align: left; font-size: 10pt; color: var(--text-dark); line-height: 1.4; page-break-inside: avoid; }
+            .print-reclass-table th { background-color: var(--secondary-light); color: var(--primary-color); font-weight: 700; text-align: center; }
+            .print-reclass-table td:nth-child(1) { width: 15%; text-align: center; font-weight: 700; color: var(--primary-color); background: #FAF7F2; vertical-align: middle; }
+            .print-reclass-table td:nth-child(2) { width: 35%; }
+            .print-reclass-table td:nth-child(3) { width: 50%; }
+            .time-tag-print { display: inline-block; font-size: 8pt; background: var(--secondary-light); color: var(--primary-color); padding: 2px 5px; border-radius: 4px; margin-right: 5px; font-weight: 600; }
+        }
+
+        @media screen {
+            .print-reclass-table { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-area">
+            <h1>살아있는 생기부 심층 시각화 리포트</h1>
+            <p>학생A(충무고등학교) · 3개년 전수 데이터 교차 검증 완료 · 공공행정·경제경영·데이터 통계 융합 프로파일</p>
+        </div>
+        <button class="btn-print" onclick="window.print()">보고서 인쇄 / PDF 저장</button>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-target="tab-graph">키워드 노드표</button>
+        <button class="tab-btn" data-target="tab-timeline">학년간 활동 (전수)</button>
+        <button class="tab-btn" data-target="tab-story">주제 묶기 (12대 서사)</button>
+        <button class="tab-btn" data-target="tab-tree">역량 확인 (트리)</button>
+        <button class="tab-btn" data-target="tab-evidence">원문 확인 (1:1 검증)</button>
+        <button class="tab-btn" data-target="tab-wiki">AI 학습 사전</button>
+        <button class="tab-btn" data-target="tab-reclass">활동 분류 (8대 계열)</button>
+    </div>
+
+    <main>
+        <!-- 1. 키워드 노드표 -->
+        <div id="tab-graph" class="tab-content active">
+            <div class="section-desc">
+                학생A를 중심으로 관심사, 활동, 역량, 개념, 배움이 어떻게 유기적으로 확장되는지 보여주는 입체적 지식망입니다.<br>
+                <b>범례:</b> 중앙(갈색: 학생), 노란색(관심사), 파란색(활동), 초록색(역량), 보라색(핵심개념), 주황색(성찰/배움) &nbsp;|&nbsp; <b>연결선:</b> 굵은 실선(핵심 근거), 가는 점선(보조/심화 근거) &nbsp;|&nbsp; <i>노드를 클릭하면 연결된 요소만 포커스됩니다.</i>
+            </div>
+            <div id="network-container" class="graph-container"></div>
+        </div>
+
+        <!-- 2. 학년간 활동 -->
+        <div id="tab-timeline" class="tab-content">
+            <div class="section-desc">
+                1학년 1학기부터 3학년 1학기까지 생활기록부 전 영역(교과세특, 창체, 독서, 봉사, 행동특성)에서 추출된 모든 활동의 시계열적 발전 궤적입니다.
+            </div>
+            <div class="timeline-scroll" id="timeline-render"></div>
+        </div>
+
+        <!-- 3. 주제 묶기 -->
+        <div id="tab-story" class="tab-content">
+            <div class="section-desc">
+                단편적인 활동들을 학업, 진로, 인성, 사회철학, 경제수학, 데이터 등 다각적인 렌즈로 교차 연결하여 도출한 12대 심층 서사 아크(Story Arcs)입니다.
+            </div>
+            <div class="story-container" id="story-render"></div>
+        </div>
+
+        <!-- 4. 역량 트리 -->
+        <div id="tab-tree" class="tab-content">
+            <div class="section-desc">
+                키워드 노드표(graph)의 역량 데이터와 100% 동기화된 13대 핵심 역량 체계 및 하위 활동 근거 트리입니다. (좌→우 위계형 구조)
+            </div>
+            <div id="tree-container" class="graph-container"></div>
+        </div>
+
+        <!-- 5. 원문 확인 -->
+        <div id="tab-evidence" class="tab-content">
+            <div class="section-desc">
+                보고서의 모든 노드, 활동, 역량, 스토리의 출처가 되는 학교생활기록부 원문 1:1 대조 검증 데이터입니다. (핵심 진술 하이라이트 적용)
+            </div>
+            <div class="evidence-grid" id="evidence-render"></div>
+        </div>
+
+        <!-- 6. AI 학습 사전 -->
+        <div id="tab-wiki" class="tab-content">
+            <div class="section-desc">
+                학생A의 생기부에서 탐구된 전문 경제학 원리, 통계 기법, 윤리 철학 사조, 데이터 시스템에 대한 AI 학술 용어 해설집입니다.
+            </div>
+            <div class="wiki-grid" id="wiki-render"></div>
+        </div>
+
+        <!-- 7. 활동 분류 (매핑) -->
+        <div id="tab-reclass" class="tab-content">
+            <div class="section-desc">
+                좌측 생기부 기재 항목과 우측 8대 학문 계열(사회, 인문, 공학, 자연, 의약, 교육, 예체능, 기타) 간의 융합 매핑입니다. 항목에 마우스를 올리면 연결 경로가 하이라이트됩니다.
+            </div>
+            <div class="mapping-container">
+                <div class="mapping-col" id="map-left"></div>
+                <div class="mapping-canvas-wrap"><svg id="mapping-svg"></svg></div>
+                <div class="mapping-col" id="map-right"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const studentData = {
+            graph: {
+                nodes: [
+                    { id: 1, label: "학생A\n(공공·경제경영·데이터 융합)", group: "student" },
+                    // 관심사 (interest)
+                    { id: 101, label: "공공 행정 및 공익 정책 가치", group: "interest" },
+                    { id: 102, label: "스포츠 산업 및 구단 비즈니스", group: "interest" },
+                    { id: 103, label: "시장 경제와 화폐 가치 분석", group: "interest" },
+                    { id: 104, label: "노동 인권 및 기업의 사회적 책임(CSR)", group: "interest" },
+                    { id: 105, label: "데이터 통계 및 수리적 최적화 모델", group: "interest" },
+                    { id: 106, label: "상담 심리와 상호 호혜적 소통", group: "interest" },
+
+                    // 역량 (competence) - competenceTree의 level 1과 100% 명칭 동기화
+                    { id: 201, label: "공동체 갈등중재 및 민주적 리더십", group: "competence" },
+                    { id: 202, label: "공감적 경청 및 심리적 상담 역량", group: "competence" },
+                    { id: 203, label: "사회 구조 분석 및 공공정책 설계 역량", group: "competence" },
+                    { id: 204, label: "스포츠 비즈니스 및 다각적 전술 분석력", group: "competence" },
+                    { id: 205, label: "거시·미시 경제학적 통찰 및 자산운용 분석력", group: "competence" },
+                    { id: 206, label: "기업 윤리 비판 및 상생 제도화 역량", group: "competence" },
+                    { id: 207, label: "실생활 수학적 모델링 및 페르미 추정력", group: "competence" },
+                    { id: 208, label: "확률 통계적 데이터 분석 및 추론력", group: "competence" },
+                    { id: 209, label: "역사적 사료 비판 및 경영학적 협상 전략 도출력", group: "competence" },
+                    { id: 210, label: "컴퓨팅 시스템 사고 및 정보 보안 관리력", group: "competence" },
+                    { id: 211, label: "과학적 원리 적용 및 사회 안전 설계력", group: "competence" },
+                    { id: 212, label: "인문학적 텍스트 비평 및 성찰적 메타인지력", group: "competence" },
+                    { id: 213, label: "신체 협응 분석 및 자기통제적 집중 역량", group: "competence" },
+
+                    // 개념 (concept)
+                    { id: 301, label: "화폐의 시간 가치 & 인내 자본", group: "concept" },
+                    { id: 302, label: "정보의 비대칭성 & 상호 이익 협상", group: "concept" },
+                    { id: 303, label: "칸트 인간성정식 · 롤스 차등원칙 · 맹자 견리사의", group: "concept" },
+                    { id: 304, label: "페르미 추정 & 수학적 모델링", group: "concept" },
+                    { id: 305, label: "표준정규분포 & 신뢰구간 95% 모평균 추정", group: "concept" },
+                    { id: 306, label: "밴드웨건 효과 & 베블런 효과", group: "concept" },
+                    { id: 307, label: "앵커링 효과 & 프레이밍 기법", group: "concept" },
+                    { id: 308, label: "리뷰슈머 & 지속가능한 소비", group: "concept" },
+                    { id: 309, label: "복원 시점 백업 & 병렬 처리 시스템", group: "concept" },
+                    { id: 310, label: "상호텍스트성 & 의식의 흐름 기법", group: "concept" },
+
+                    // 활동 (activity)
+                    { id: 401, label: "교내 합창제 마찰 중재 및 분위기 조성", group: "activity" },
+                    { id: 402, label: "또래상담 대화전략 실습 및 타로 상담 부스", group: "activity" },
+                    { id: 403, label: "지역사회 행정 절차 투명성 및 정책 제안", group: "activity" },
+                    { id: 404, label: "감정-이차함수 및 스트레스-유리함수 모델링", group: "activity" },
+                    { id: 405, label: "충격량-시간 원리 오토바이 하부 에어백 고안", group: "activity" },
+                    { id: 406, label: "온라인 쇼핑몰 개인정보 유출 보안 책임 강조", group: "activity" },
+                    { id: 407, label: "팔굽혀펴기 51개 완수 및 배구 스파이크 분석", group: "activity" },
+                    { id: 408, label: "축구 명장면 분석 및 문화 교류 콘텐츠 대안", group: "activity" },
+                    { id: 409, label: "고지도(지구전후도·천하도) 국토관 변천 탐구", group: "activity" },
+                    { id: 410, label: "난징조약 사료 기반 현대 기업 해외 진출 협상", group: "activity" },
+                    { id: 411, label: "페르미 추정 활용 '서울 노숙자 수 추정'", group: "activity" },
+                    { id: 412, label: "복합 관세·부가세 과세표준 세제 계산식 도출", group: "activity" },
+                    { id: 413, label: "미분 활용 나만의 최적화 함수 및 증감표 검증", group: "activity" },
+                    { id: 414, label: "학급 반장 소외 학생 1:1 경청 및 면담 건의", group: "activity" },
+                    { id: 415, label: "화폐 시간가치 딜레마 토론 실질구매력 분석", group: "activity" },
+                    { id: 416, label: "OTT 요금제 표준정규분포 및 95% 모평균 추정", group: "activity" },
+                    { id: 417, label: "한국형 국부펀드 '인내 자본' 및 민간 상생 분석", group: "activity" },
+                    { id: 418, label: "기업 CSR과 AI 노동위험 해결(칸트·롤스·맹자)", group: "activity" },
+                    { id: 419, label: "블랙기업 실태 분석 및 징벌적 손배·공시 제안", group: "activity" },
+                    { id: 420, label: "스포츠 에이전트 심리 협상(앵커링·프레이밍)", group: "activity" },
+                    { id: 421, label: "밸런스보드 중심 유지와 경제학적 객관성 연결", group: "activity" },
+
+                    // 배움 (lesson)
+                    { id: 501, label: "사람을 대하고 사람을 위해 일하는 직업 지향", group: "lesson" },
+                    { id: 502, label: "'노력은 증명하는 것이지, 설명하는 것 아님'", group: "lesson" },
+                    { id: 503, label: "'경험이 없으면 스스로 배운다' 자기주도 학습관", group: "lesson" },
+                    { id: 504, label: "집착적 집중과 유연한 집중의 주체적 조화", group: "lesson" },
+                    { id: 505, label: "기업 성장은 노동자 인권 보장 위에서만 정당함", group: "lesson" },
+                    { id: 506, label: "다문화 사회에 대한 시야 확장과 포용적 가치관", group: "lesson" }
+                ],
+                edges: [
+                    { from: 1, to: 101, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 102, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 103, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 104, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 105, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 106, dashes: false, title: "핵심 관심사" },
+
+                    { from: 101, to: 203, dashes: false, title: "핵심 역량 연계" },
+                    { from: 102, to: 204, dashes: false, title: "핵심 역량 연계" },
+                    { from: 103, to: 205, dashes: false, title: "핵심 역량 연계" },
+                    { from: 104, to: 206, dashes: false, title: "핵심 역량 연계" },
+                    { from: 105, to: 207, dashes: false, title: "핵심 역량 연계" },
+                    { from: 105, to: 208, dashes: false, title: "핵심 역량 연계" },
+                    { from: 106, to: 201, dashes: false, title: "핵심 역량 연계" },
+                    { from: 106, to: 202, dashes: false, title: "핵심 역량 연계" },
+
+                    { from: 1, to: 209, dashes: false, title: "핵심 역량 연계" },
+                    { from: 1, to: 210, dashes: false, title: "핵심 역량 연계" },
+                    { from: 1, to: 211, dashes: false, title: "핵심 역량 연계" },
+                    { from: 1, to: 212, dashes: false, title: "핵심 역량 연계" },
+                    { from: 1, to: 213, dashes: false, title: "핵심 역량 연계" },
+
+                    { from: 201, to: 401, dashes: false, title: "원문 근거" },
+                    { from: 201, to: 414, dashes: false, title: "원문 근거" },
+                    { from: 202, to: 402, dashes: false, title: "원문 근거" },
+                    { from: 202, to: 420, dashes: true, title: "확장 근거" },
+                    { from: 203, to: 403, dashes: false, title: "원문 근거" },
+                    { from: 204, to: 408, dashes: false, title: "원문 근거" },
+                    { from: 204, to: 420, dashes: false, title: "원문 근거" },
+                    { from: 205, to: 412, dashes: false, title: "원문 근거" },
+                    { from: 205, to: 415, dashes: false, title: "원문 근거" },
+                    { from: 205, to: 417, dashes: false, title: "원문 근거" },
+                    { from: 206, to: 418, dashes: false, title: "원문 근거" },
+                    { from: 206, to: 419, dashes: false, title: "원문 근거" },
+                    { from: 207, to: 404, dashes: false, title: "원문 근거" },
+                    { from: 207, to: 411, dashes: false, title: "원문 근거" },
+                    { from: 207, to: 413, dashes: false, title: "원문 근거" },
+                    { from: 208, to: 416, dashes: false, title: "원문 근거" },
+                    { from: 209, to: 410, dashes: false, title: "원문 근거" },
+                    { from: 210, to: 406, dashes: false, title: "원문 근거" },
+                    { from: 211, to: 405, dashes: false, title: "원문 근거" },
+                    { from: 213, to: 407, dashes: false, title: "원문 근거" },
+                    { from: 213, to: 421, dashes: false, title: "원문 근거" },
+
+                    { from: 415, to: 301, dashes: false, title: "이론 접목" },
+                    { from: 417, to: 301, dashes: false, title: "이론 접목" },
+                    { from: 410, to: 302, dashes: false, title: "이론 접목" },
+                    { from: 418, to: 303, dashes: false, title: "이론 접목" },
+                    { from: 411, to: 304, dashes: false, title: "이론 접목" },
+                    { from: 416, to: 305, dashes: false, title: "이론 접목" },
+                    { from: 420, to: 307, dashes: false, title: "이론 접목" },
+                    { from: 406, to: 309, dashes: true, title: "이론 접목" },
+
+                    { from: 402, to: 501, dashes: true, title: "성찰 도출" },
+                    { from: 414, to: 501, dashes: false, title: "성찰 도출" },
+                    { from: 407, to: 502, dashes: true, title: "성찰 도출" },
+                    { from: 420, to: 503, dashes: false, title: "성찰 도출" },
+                    { from: 418, to: 505, dashes: false, title: "성찰 도출" },
+                    { from: 419, to: 505, dashes: false, title: "성찰 도출" },
+                    { from: 421, to: 504, dashes: true, title: "성찰 도출" }
+                ]
+            },
+            timeline: [
+                {
+                    grade: "1학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "교내 합창제 마찰 중재 및 전원 참여 독려", type: "자율", semester: "1-1" },
+                                { title: "또래상담 대화전략 실습(어기역차 등)", type: "동아리", semester: "1-1" },
+                                { title: "마음약방 및 축제 타로 상담 부스 운영", type: "동아리", semester: "1-1" },
+                                { title: "감정 변화의 이차함수 모델링 보고서", type: "수학", semester: "1-1" },
+                                { title: "스트레스-행복감 유리함수 및 역함수 산출", type: "수학", semester: "1-1" },
+                                { title: "저출산 사회현상 원인 및 소수자우대정책 고찰", type: "통합사회", semester: "1-1" },
+                                { title: "메테인 연소 화학식 및 온실효과 환경 분석", type: "통합과학", semester: "1-1" },
+                                { title: "충격량-시간 안전장치(오토바이 하부 에어백)", type: "통합과학", semester: "1-1" },
+                                { title: "코로나바이러스 무생물 특성 인포그래픽", type: "과탐실", semester: "1-1" },
+                                { title: "종이 아치 구조물 하중 분산 원리 제작", type: "과탐실", semester: "1-1" },
+                                { title: "무릎대고 팔굽혀펴기 25+26회(총51회) 근성 완수", type: "체육", semester: "1-1" },
+                                { title: "우쿨렐레 이중주 암보 및 반주 선율 지도", type: "음악", semester: "1-1" },
+                                { title: "사물 연속 배치 윤곽 드로잉 확장 표현", type: "미술", semester: "1-1" },
+                                { title: "또래상담 및 한국사 수업도우미 봉사", type: "봉사", semester: "1-1" }
+                            ]
+                        },
+                        {
+                            term: "2학기",
+                            activities: [
+                                { title: "지역사회 문제 해결 및 공공정책 보고서", type: "진로", semester: "1-2" },
+                                { title: "공무원의 행정 책임성과 투명성 연구", type: "진로", semester: "1-2" },
+                                { title: "'여행하는 소설' 서평(타국 적응과 소극적 성격)", type: "국어", semester: "1-2" },
+                                { title: "직업 선호도 조사 영어 도표 모둠 보고서", type: "영어", semester: "1-2" },
+                                { title: "개항기 경제침탈과 임오군란 인과 흐름표", type: "한국사", semester: "1-2" },
+                                { title: "독립운동가 홍범도 장군 생애 4면 팸플릿 제작", type: "한국사", semester: "1-2" },
+                                { title: "이집트 문명 홍보지 및 말리 졸로프라이스 국기", type: "통합사회", semester: "1-2" },
+                                { title: "화성 기지 건설 에너지 공급팀 기획 상상도", type: "과탐실", semester: "1-2" },
+                                { title: "경영정보시스템 및 인공지능 탐구 소감", type: "기술가정", semester: "1-2" },
+                                { title: "리뷰슈머와 지속가능한 소비 보고서", type: "기술가정", semester: "1-2" },
+                                { title: "온라인 쇼핑몰 개인정보 유출 보안 대책", type: "정보", semester: "1-2" },
+                                { title: "배구 스파이크 타이밍 과학적 원리 분석", type: "체육", semester: "1-2" },
+                                { title: "농구 세트슛 만점 연습 및 경기 주도", type: "체육", semester: "1-2" },
+                                { title: "3회 진로 상담: '사람을 대하는 직업' 설정", type: "행특", semester: "1-2" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    grade: "2학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "스포츠 매니저 적성 검사 및 협력 가치 확인", type: "자율", semester: "2-1" },
+                                { title: "축구 명장면 분석 및 축구산업 진로 확장", type: "진로", semester: "2-1" },
+                                { title: "음식 콘텐츠 기반 상호 문화 교류 대안 제시", type: "진로", semester: "2-1" },
+                                { title: "장석남 '배를 매며'·'배를 밀며' 상호텍스트 비교", type: "문학", semester: "2-1" },
+                                { title: "'소설가 구보 씨의 일일' 주체적 삶 비판 인터뷰", type: "문학", semester: "2-1" },
+                                { title: "뉴턴 냉각법칙과 투자수익률 지수함수 모델", type: "수학Ⅰ", semester: "2-1" },
+                                { title: "Success 다행시 및 '노력은 증명' 좌우명 작문", type: "영어Ⅰ", semester: "2-1" },
+                                { title: "고지도(대동여지도·지구전후도) 국토관 변천", type: "한국지리", semester: "2-1" },
+                                { title: "저출산·고령화와 생산인구 감소 사회문제 분석", type: "사회문화", semester: "2-1" },
+                                { title: "태풍 해수온 인과 및 지역 방재 시민의식 고찰", type: "지구과학", semester: "2-1" },
+                                { title: "페르미 추정 활용 '서울 노숙자 수 추정'", type: "수학탐구", semester: "2-1" },
+                                { title: "왕복오래달리기 페이스 조절 및 플로어컬링", type: "스포츠", semester: "2-1" },
+                                { title: "생성형 AI 도구 활용 캐릭터 서사 창작", type: "미술창작", semester: "2-1" }
+                            ]
+                        },
+                        {
+                            term: "2학기",
+                            activities: [
+                                { title: "사회 교과의 날 저출산 신문 스크랩 및 육아보장", type: "자율", semester: "2-2" },
+                                { title: "알록달록 동아리 협동 포스터 및 스크래치 북", type: "동아리", semester: "2-2" },
+                                { title: "진로개발역량 확인 및 선수 교체 원인 다각 추론", type: "진로", semester: "2-2" },
+                                { title: "도덕적 갈등 3관점 비교 및 도덕적 다원주의 지지", type: "독서", semester: "2-2" },
+                                { title: "미분 활용 나만의 최적화 함수 및 증감표 설계", type: "수학Ⅱ", semester: "2-2" },
+                                { title: "영어 5개 유형 직접 출제 및 축구장 사진수필", type: "영어Ⅱ", semester: "2-2" },
+                                { title: "난징조약 사료 비교 및 현대 기업 진출 협상 전략", type: "동아시아사", semester: "2-2" },
+                                { title: "품목별 복합 관세·부가세 과세표준 세제 계산식", type: "경제수학", semester: "2-2" },
+                                { title: "공공기관 고객만족도 지표 및 GNP 개념 차이", type: "경제수학", semester: "2-2" },
+                                { title: "빅데이터 식단 데이터 임곗값 정제 및 병렬처리", type: "정보", semester: "2-2" },
+                                { title: "랜섬웨어 대응 시스템 복원 시점 백업 메커니즘", type: "정보", semester: "2-2" },
+                                { title: "일본어 장인 맛집 홍보 및 혈액형 성격론 비판", type: "일본어Ⅰ", semester: "2-2" },
+                                { title: "배구 언더핸드 서브 및 농구 골밑슛 자기효능감", type: "스포츠", semester: "2-2" },
+                                { title: "우쿨렐레 스트로크 패턴 선택 및 안정적 합주", type: "음악감상", semester: "2-2" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    grade: "3학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "학급 반장: 소외 학생 1:1 경청 및 면담 건의", type: "자율", semester: "3-1" },
+                                { title: "자율학습 솔선수범 및 면학 분위기 형성", type: "자율", semester: "3-1" },
+                                { title: "화폐의 시간가치 딜레마 토론(실질구매력)", type: "동아리", semester: "3-1" },
+                                { title: "'부를 끌어당기는 행동습관' 집중방식 비판", type: "진로", semester: "3-1" },
+                                { title: "경제학과 면접 전략 설계 및 비합리적 소비 작문", type: "화법작문", semester: "3-1" },
+                                { title: "OTT 요금제 표준정규분포 및 95% 모평균 추정", type: "확률통계", semester: "3-1" },
+                                { title: "빈부격차 원인 및 청년층 정책 제안 영문기사", type: "영어독해", semester: "3-1" },
+                                { title: "한국형 국부펀드 '인내 자본' 및 민간 상생 분석", type: "경제", semester: "3-1" },
+                                { title: "기업 CSR과 AI 노동위험(칸트·롤스·맹자 융합)", type: "생활윤리", semester: "3-1" },
+                                { title: "스포츠 에이전트 심리 협상(앵커링·프레이밍)", type: "심리학", semester: "3-1" },
+                                { title: "진로 역량 객관적 메타인지(친화력 vs 데이터분석)", type: "심리학", semester: "3-1" },
+                                { title: "비정규직 고용 마스크 사례 및 합리적 상생 균형", type: "사회문제", semester: "3-1" },
+                                { title: "한국형 블랙기업 실태 및 징벌적 손배·공시 제안", type: "사회문제", semester: "3-1" },
+                                { title: "비경쟁 독서토론 및 논리적 문학 시평 작성", type: "현대문학", semester: "3-1" },
+                                { title: "한자성어 활용 일상 글쓰기 및 목표 성실성", type: "한문Ⅰ", semester: "3-1" },
+                                { title: "밸런스보드 자기통제와 경제학적 객관성 연결", type: "운동건강", semester: "3-1" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            story: [
+                {
+                    title: "1. 합창제 마찰 중재에서 전교 학급 반장까지: 민주적 경청과 소통 리더십",
+                    type: "리더십 / 인성",
+                    interpretation: "AI 심층 분석: 1학년 자율활동 합창제에서 다수 인원의 갈등을 발로 뛰며 조율하던 경험이, 2학년 학급 내 상호 존중과 신뢰 구축을 거쳐 3학년 학급 반장 활동으로 만개했습니다. 특히 소극적인 학생들을 개별 방문하여 의견을 경청하고 담임교사에게 공식 건의하는 실천적 리더십은 학생A의 독보적인 공동체 역량입니다.",
+                    steps: [
+                        { time: "1-1", title: "교내 합창제 마찰 중재 및 분위기 촉진", detail: "자율활동" },
+                        { time: "1-1", title: "또래상담 대화전략 실습(어기역차·원무지계)", detail: "동아리활동" },
+                        { time: "2-2", title: "갈등 상황 양보와 배려로 학급 내 신뢰 형성", detail: "행동특성" },
+                        { time: "3-1", title: "학급 반장 1:1 맞춤형 경청 및 실질적 제도 개선", detail: "자율활동" }
+                    ]
+                },
+                {
+                    title: "2. 또래상담 감정 카드에서 스포츠 에이전트 멘탈 코칭과 협상 전략으로",
+                    type: "심리 / 진로",
+                    interpretation: "AI 심층 분석: 1학년 동아리에서 감정 카드로 타인의 마음을 읽던 경험과 축제 타로 상담은, 3학년 심리학 수업에서 스포츠 에이전트의 핵심 역량으로 치환되었습니다. 선수의 슬럼프 극복을 위한 공감 멘탈 케어와 구단과의 계약 협상에서 앵커링·프레이밍 기법을 적용하는 고도화된 직무 전문성으로 심화되었습니다.",
+                    steps: [
+                        { time: "1-1", title: "감정 카드 및 경청 실습, 축제 타로 상담", detail: "동아리활동" },
+                        { time: "1-1", title: "시간-감정 변화 이차함수 및 스트레스 역함수", detail: "수학" },
+                        { time: "2-1", title: "스포츠 매니저 적성 점검 및 조직소통 인식", detail: "자율활동" },
+                        { time: "3-1", title: "스포츠 에이전트 협상 심리학 및 멘탈 케어 탐구", detail: "심리학" }
+                    ]
+                },
+                {
+                    title: "3. 지역사회 행정 투명성에서 블랙기업 규제와 노동 인권 제도화까지",
+                    type: "공공정책 / 사회정의",
+                    interpretation: "AI 심층 분석: 1학년 진로활동에서 지역사회 교통·환경 행정 절차의 투명성을 고민하던 공직 관심사는, 3학년 사회문제탐구에서 플랫폼 미정산 사태와 유제품 갑질 등 '한국형 블랙기업'에 맞선 법적·제도적 처방(징벌적 손해배상제, 정보공시 의무화)으로 구체화되며 사회적 약자를 대변하는 거시 정책 역량으로 발전했습니다.",
+                    steps: [
+                        { time: "1-2", title: "지역사회 문제 해결 및 행정 투명성 정책 보고서", detail: "진로활동" },
+                        { time: "2-2", title: "도덕적 다원주의 기반 인간관계·상황 고려", detail: "독서" },
+                        { time: "3-1", title: "비정규직 고용 양산 노사 상생 합리적 균형점", detail: "사회문제탐구" },
+                        { time: "3-1", title: "한국형 블랙기업 갑질 실태 및 징벌적 손배 제안", detail: "사회문제탐구" }
+                    ]
+                },
+                {
+                    title: "4. 지수함수 투자수익률에서 화폐 시간가치 딜레마와 국부펀드 분석으로",
+                    type: "경제 / 금융",
+                    interpretation: "AI 심층 분석: 2학년 수학에서 시간에 따른 투자수익률 지표를 함수로 추출하던 수리적 감각이, 3학년 경제경영 동아리 토론(인플레이션에 따른 실질 구매력 하락과 현재 가치의 우월성)과 경제 세특(한국형 국부펀드의 인내 자본 성격 및 민간 상생 분석)으로 이어지며 탄탄한 금융·경제학적 통찰력으로 결실을 맺었습니다.",
+                    steps: [
+                        { time: "2-1", title: "시간에 따른 투자수익률 지표 지수함수 모델링", detail: "수학Ⅰ" },
+                        { time: "2-2", title: "품목별 복합 관세·부가세 과세표준 세제 계산", detail: "경제수학" },
+                        { time: "3-1", title: "화폐의 시간가치 딜레마 토론(실질가치 우위)", detail: "동아리활동" },
+                        { time: "3-1", title: "한국형 국부펀드 '인내 자본' 및 민간 상생 고찰", detail: "경제" }
+                    ]
+                },
+                {
+                    title: "5. 페르미 추정에서 동영상 스트리밍 플랫폼 요금제 통계 모델링까지",
+                    type: "수학 / 통계",
+                    interpretation: "AI 심층 분석: 2학년 수학과제탐구에서 가설 설정을 통해 서울 노숙자 수를 추론하던 페르미 모델링 경험이, 3학년 확률과 통계에서 실제 OTT 플랫폼 20개 요금 데이터를 정밀 수집하고 표준정규분포 변환 및 신뢰도 95% 모평균 추정구간을 도출하는 정교한 데이터 분석 알고리즘 구현으로 도약했습니다.",
+                    steps: [
+                        { time: "2-1", title: "페르미 추정 활용 '서울 노숙자 수 추정' 탐구", detail: "수학과제탐구" },
+                        { time: "2-2", title: "미분 최적화 함수 설계 및 증감표 작성 검증", detail: "수학Ⅱ" },
+                        { time: "3-1", title: "OTT 플랫폼 요금제 수집 및 기술통계 산출", detail: "확률과통계" },
+                        { time: "3-1", title: "표준정규분포 변환 및 95% 신뢰구간 모평균 추정", detail: "확률과통계" }
+                    ]
+                },
+                {
+                    title: "6. 난징조약의 불평등성을 현대 글로벌 기업의 정보 비대칭 상생 협상으로",
+                    type: "역사 / 경영전략",
+                    interpretation: "AI 심층 분석: 역사적 사건을 단순 암기하지 않고 경영학적 렌즈로 재해석한 대표적 융합 사례입니다. 청나라와 영국의 난징조약을 '정보의 비대칭성'과 '협상력 격차'로 분석하고, 현대 글로벌 기업이 신흥 시장에 진출할 때 문화 제국주의와 노동 착취를 방지하기 위한 상호 호혜적 협상 전략을 도출해냈습니다.",
+                    steps: [
+                        { time: "1-2", title: "개항기 일본 경제침탈과 임오군란 인과 흐름표", detail: "한국사" },
+                        { time: "2-2", title: "난징조약 사료 비교 및 공행 무역 폐지 규명", detail: "동아시아사" },
+                        { time: "2-2", title: "정보 비대칭성 관점의 현대 기업 해외 진출 전략", detail: "동아시아사" },
+                        { time: "3-1", title: "기업 해외 진출 시 상생 감시 체계 및 준법 모델", detail: "동아시아사" }
+                    ]
+                },
+                {
+                    title: "7. 착한 소비(리뷰슈머)에서 칸트·롤스·맹자 기반의 기업 윤리로",
+                    type: "철학 / 윤리경영",
+                    interpretation: "AI 심층 분석: 1학년 기술가정에서 리뷰슈머로서 시장에 선한 영향력을 끼치겠다고 다짐한 개인 윤리가, 3학년 생활과 윤리에서 칸트의 인간성 정식(노동자 수단화 금지), 롤스의 차등 원칙(최소수혜자 보호), 맹자의 견리사의(이익 앞 의로움)를 결합하여 기업의 AI 알고리즘 도입 부작용을 비판하는 거시 기업 윤리로 성숙했습니다.",
+                    steps: [
+                        { time: "1-2", title: "리뷰슈머의 역할과 지속가능한 소비 보고서", detail: "기술·가정" },
+                        { time: "2-2", title: "소비자물가지수와 공공기관 고객만족도 지표", detail: "경제수학" },
+                        { time: "3-1", title: "기업 CSR 딜레마: AI 노동위험과 생존권 침해", detail: "생활과윤리" },
+                        { time: "3-1", title: "칸트·롤스·맹자 윤리 사상을 융합한 경영 수정론", detail: "생활과윤리" }
+                    ]
+                },
+                {
+                    title: "8. 축구 영상 분석에서 스포츠 미디어·문화·경영 융복합 안목으로",
+                    type: "스포츠경영 / 미디어",
+                    interpretation: "AI 심층 분석: 2학년 '내 피드가 나를 말해준다' 활동에서 단순 축구 시청을 넘어 선수 기용과 전술, 경기 중 교체 원인을 팀 운영 관점에서 추론했습니다. 나아가 한·외국 선수의 음식 콘텐츠를 일방적 리액션이 아닌 쌍방향 문화 교류 플랫폼으로 재정의하며 미디어와 스포츠 산업을 아우르는 비즈니스 안목을 보였습니다.",
+                    steps: [
+                        { time: "2-1", title: "축구 명장면 및 담화 방송 분석 기반 관심사 도출", detail: "진로활동" },
+                        { time: "2-1", title: "축구선수 교체 원인의 전술·컨디션·팀운영 추론", detail: "진로활동" },
+                        { time: "2-1", title: "음식 콘텐츠의 쌍방향 문화 교류 대안 제시", detail: "진로활동" },
+                        { time: "3-1", title: "스포츠 에이전트 구단 협상 및 선수 매니지먼트", detail: "심리학" }
+                    ]
+                },
+                {
+                    title: "9. 저출산 딜레마에서 인구 구조 변화와 국가 존속 복지 정책으로",
+                    type: "사회학 / 공공정책",
+                    interpretation: "AI 심층 분석: 1학년 통합사회에서 저출산에 따른 가족구조 변화를 처음 인식한 이래, 2학년 사회 교과의 날 신문 스크랩과 사회문화 수업을 통해 생산가능인구 감소와 저성장 악순환이라는 경제적 충격을 분석하고, 단순 지원금을 넘어선 육아 보장 확대와 노인 빈곤 대책이라는 종합 사회보장책을 일관되게 주창했습니다.",
+                    steps: [
+                        { time: "1-1", title: "저출산 사회현상 원인 및 소수자우대정책 분석", detail: "통합사회" },
+                        { time: "2-1", title: "저출산 고령화 통계 분석 및 저성장 악순환 경고", detail: "사회·문화" },
+                        { time: "2-2", title: "사회 교과의 날 저출산 신문 읽기 및 육아제도 확대", detail: "자율활동" },
+                        { time: "3-1", title: "빈부격차 및 청년층 자립을 위한 제도 정책 제안", detail: "영어독해와작문" }
+                    ]
+                },
+                {
+                    title: "10. 온라인 쇼핑몰 개인정보 유출에서 빅데이터 정제 및 복원 메커니즘으로",
+                    type: "IT / 정보보안",
+                    interpretation: "AI 심층 분석: 1학년 정보 수업에서 온라인 쇼핑몰 해킹 사건을 계기로 이용자와 관리자 모두의 보안 책임을 강조한 후, 2학년 정보에서 식단 데이터의 결측값/이상치 정제 기법과 병렬 처리 시스템, 랜섬웨어에 대응하는 시스템 복원 시점 백업 메커니즘을 분석하며 데이터 무결성을 다루는 기술적 기반을 다졌습니다.",
+                    steps: [
+                        { time: "1-2", title: "온라인 쇼핑몰 개인정보 유출 사건 원인 분석", detail: "정보" },
+                        { time: "2-2", title: "식단 빅데이터 임곗값 탐지 및 품질 관리 정제", detail: "정보" },
+                        { time: "2-2", title: "병렬 처리 시스템 구조 및 텍스트 압축 실습", detail: "정보" },
+                        { time: "2-2", title: "랜섬웨어 대응 시스템 복원 시점 백업 분석", detail: "정보" }
+                    ]
+                },
+                {
+                    title: "11. '소설가 구보 씨' 비판에서 '부를 끌어당기는 행동습관'의 집중 모델로",
+                    type: "인문 / 자기주도학습",
+                    interpretation: "AI 심층 분석: 2학년 문학에서 무기력한 지식인 구보 씨를 무비판적으로 수용하지 않고 주체적 실천을 역설했던 학생A는, 3학년 진로 독서에서 '경험이 없으면 스스로 배워야 한다'는 원칙을 수용함과 동시에 저자의 '집착적 집중' 주장을 맹신하지 않고 '유연한 집중'과의 균형을 모색하는 탁월한 비판적 성찰력을 입증했습니다.",
+                    steps: [
+                        { time: "1-2", title: "'여행하는 소설' 서평(타국 적응 및 내면 성찰)", detail: "국어" },
+                        { time: "2-1", title: "'소설가 구보 씨의 일일' 인물 분석 및 주체적 삶 비판", detail: "문학" },
+                        { time: "2-1", title: "좌우명 작문: '노력은 증명하는 것이지, 설명하는 것 아님'", detail: "영어Ⅰ" },
+                        { time: "3-1", title: "'부를 끌어당기는 행동습관' 집중 방식 비판 탐구", detail: "진로활동" }
+                    ]
+                },
+                {
+                    title: "12. 팔굽혀펴기 51개 근성에서 밸런스보드 자기통제와 경제학적 판단력으로",
+                    type: "신체 / 체육인성",
+                    interpretation: "AI 심층 분석: 1학년 체육에서 탈진 상태를 극복하고 무릎 대고 팔굽혀펴기 26개를 추가해 51개를 완수한 끈기는, 3학년 운동과 건강에서 밸런스보드 위 시각 고정과 외적 소음 차단 훈련으로 이어졌습니다. 신체 균형을 잡는 자기통제력은 불필요한 시장 변수에 흔들리지 않고 냉철하게 판단하는 경제학적 직무 역량으로 승화되었습니다.",
+                    steps: [
+                        { time: "1-1", title: "팔굽혀펴기 25개 완료 후 근성으로 26개 추가 달성", detail: "체육" },
+                        { time: "1-2", title: "농구 세트슛 쉬는 시간 없는 연습으로 만점 도달", detail: "체육" },
+                        { time: "2-1", title: "왕복오래달리기 페이스 조절 및 플로어컬링", detail: "스포츠생활" },
+                        { time: "3-1", title: "밸런스보드 시선 고정·자기통제와 경제학 판단력 연결", detail: "운동과건강" }
+                    ]
+                }
+            ],
+            competenceTree: {
+                nodes: [
+                    { id: "root", label: "학생A 핵심 역량 체계", level: 0 },
+                    // Level 1: 13대 핵심 역량 (graph 노드와 100% 동일)
+                    { id: "c1", label: "공동체 갈등중재 및 민주적 리더십", level: 1 },
+                    { id: "c2", label: "공감적 경청 및 심리적 상담 역량", level: 1 },
+                    { id: "c3", label: "사회 구조 분석 및 공공정책 설계 역량", level: 1 },
+                    { id: "c4", label: "스포츠 비즈니스 및 다각적 전술 분석력", level: 1 },
+                    { id: "c5", label: "거시·미시 경제학적 통찰 및 자산운용 분석력", level: 1 },
+                    { id: "c6", label: "기업 윤리 비판 및 상생 제도화 역량", level: 1 },
+                    { id: "c7", label: "실생활 수학적 모델링 및 페르미 추정력", level: 1 },
+                    { id: "c8", label: "확률 통계적 데이터 분석 및 추론력", level: 1 },
+                    { id: "c9", label: "역사적 사료 비판 및 경영학적 협상 전략 도출력", level: 1 },
+                    { id: "c10", label: "컴퓨팅 시스템 사고 및 정보 보안 관리력", level: 1 },
+                    { id: "c11", label: "과학적 원리 적용 및 사회 안전 설계력", level: 1 },
+                    { id: "c12", label: "인문학적 텍스트 비평 및 성찰적 메타인지력", level: 1 },
+                    { id: "c13", label: "신체 협응 분석 및 자기통제적 집중 역량", level: 1 },
+
+                    // Level 2: 발현 활동
+                    { id: "a1", label: "합창제 마찰 중재 및 교실 분위기 형성", level: 2 },
+                    { id: "a2", label: "학급 반장 1:1 학생 경청 및 개선 건의", level: 2 },
+                    { id: "a3", label: "또래상담 대화전략 및 축제 타로 상담", level: 2 },
+                    { id: "a4", label: "스포츠 에이전트 멘탈 코칭 및 경청 전략", level: 2 },
+                    { id: "a5", label: "지역사회 행정 투명성 및 정책 제안 보고서", level: 2 },
+                    { id: "a6", label: "저출산 고령화 및 인구 정책 육아보장 제안", level: 2 },
+                    { id: "a7", label: "축구 명장면 및 선수 교체 이유 다각 추론", level: 2 },
+                    { id: "a8", label: "음식 콘텐츠 기반 상호 문화 교류 대안", level: 2 },
+                    { id: "a9", label: "화폐 시간가치 딜레마 토론(실질구매력)", level: 2 },
+                    { id: "a10", label: "한국형 국부펀드 인내자본 및 민간 상생", level: 2 },
+                    { id: "a11", label: "품목별 복합 관세·부가세 과세표준 세제 계산", level: 2 },
+                    { id: "a12", label: "AI 노동 위험 해결(칸트·롤스·맹자 사상)", level: 2 },
+                    { id: "a13", label: "블랙기업 실태 분석 및 징벌적 손배·정보공시", level: 2 },
+                    { id: "a14", label: "감정-이차함수 및 스트레스-유리함수 모델", level: 2 },
+                    { id: "a15", label: "페르미 추정 활용 '서울 노숙자 수 추정'", level: 2 },
+                    { id: "a16", label: "미분 활용 나만의 최적화 함수 설계 검증", level: 2 },
+                    { id: "a17", label: "OTT 요금제 표준정규분포 및 95% 모평균 추정", level: 2 },
+                    { id: "a18", label: "난징조약 사료 비교 및 현대 기업 진출 협상", level: 2 },
+                    { id: "a19", label: "온라인 쇼핑몰 개인정보 유출 보안 책임", level: 2 },
+                    { id: "a20", label: "빅데이터 식단 임곗값 정제 및 백업 메커니즘", level: 2 },
+                    { id: "a21", label: "오토바이 하부 에어백 부착 안전장치 고안", level: 2 },
+                    { id: "a22", label: "태풍 해수온도 인과 분석 및 지역 방재 대책", level: 2 },
+                    { id: "a23", label: "'소설가 구보 씨' 주체성 비판 및 서평 작성", level: 2 },
+                    { id: "a24", label: "'부를 끌어당기는 행동습관' 집중 방식 비판", level: 2 },
+                    { id: "a25", label: "팔굽혀펴기 51개 완수 및 농구 세트슛 만점", level: 2 },
+                    { id: "a26", label: "밸런스보드 중심유지와 경제학적 객관성 연결", level: 2 }
+                ],
+                edges: [
+                    { from: "root", to: "c1" }, { from: "root", to: "c2" }, { from: "root", to: "c3" },
+                    { from: "root", to: "c4" }, { from: "root", to: "c5" }, { from: "root", to: "c6" },
+                    { from: "root", to: "c7" }, { from: "root", to: "c8" }, { from: "root", to: "c9" },
+                    { from: "root", to: "c10" }, { from: "root", to: "c11" }, { from: "root", to: "c12" },
+                    { from: "root", to: "c13" },
+                    { from: "c1", to: "a1" }, { from: "c1", to: "a2" },
+                    { from: "c2", to: "a3" }, { from: "c2", to: "a4" },
+                    { from: "c3", to: "a5" }, { from: "c3", to: "a6" },
+                    { from: "c4", to: "a7" }, { from: "c4", to: "a8" },
+                    { from: "c5", to: "a9" }, { from: "c5", to: "a10" }, { from: "c5", to: "a11" },
+                    { from: "c6", to: "a12" }, { from: "c6", to: "a13" },
+                    { from: "c7", to: "a14" }, { from: "c7", to: "a15" }, { from: "c7", to: "a16" },
+                    { from: "c8", to: "a17" },
+                    { from: "c9", to: "a18" },
+                    { from: "c10", to: "a19" }, { from: "c10", to: "a20" },
+                    { from: "c11", to: "a21" }, { from: "c11", to: "a22" },
+                    { from: "c12", to: "a23" }, { from: "c12", to: "a24" },
+                    { from: "c13", to: "a25" }, { from: "c13", to: "a26" }
+                ]
+            },
+            evidence: [
+                {
+                    title: "교내 합창제 준비 및 마찰 중재",
+                    type: "자율활동",
+                    semester: "1-1",
+                    text: "교내 합창제(2024.07.23.)를 준비하며 <span class='highlight'>친구들의 의견을 구하고 의사결정에 핵심이 되어 모두를 이해시키고 참여시키려 노력함</span>. 친구들의 마찰이 일어날 때마다 앞에 나서서 흥분한 친구들을 이해시키고 의견을 조율함. 불평 없이 교실을 뛰어다니는 모습은 친구들의 마음을 움직이게 했음."
+                },
+                {
+                    title: "또래상담 대화전략 실습 및 타로 상담",
+                    type: "동아리활동",
+                    semester: "1-1",
+                    text: "감정 카드로 자기 감정을 알아차리고 표현하는 훈련과 공감, 경청 실습을 진행함. <span class='highlight'>어기역차, 원무지계, 잠하둘셋 등의 대화 전략을 배워 친구들의 이야기를 경청</span>하고 고민이 있을 때 도움을 줌. 축제 부스에서 타로 상담을 맡아 사전에 적극적으로 의미를 공부하고 친절하고 공감적인 태도를 보임."
+                },
+                {
+                    title: "지역사회 행정 투명성 및 정책 제안 보고서",
+                    type: "진로활동",
+                    semester: "1-2",
+                    text: "공무원이라는 직업에 흥미를 보이며 <span class='highlight'>지역사회 문제 해결과 행정 절차의 투명성이 시민 생활에 미치는 영향을 탐구</span>함. 환경 개선, 교통 문제 해결 등의 구체적 사례를 분석하고 이해관계자의 의견을 조율하는 방법을 탐구하여 정책 보고서를 작성함."
+                },
+                {
+                    title: "감정 변화 이차함수 및 행복감-스트레스 유리함수 모델",
+                    type: "수학",
+                    semester: "1-1",
+                    text: "시간에 따른 감정 변화를 이차함수로 모형화하고 심리학적 이론을 탐독함. <span class='highlight'>스트레스 정도에 따른 행복감 변화를 유리함수로 모형화하고 역함수를 찾아 스트레스 수준을 산출</span>하는 등 수학과 심리학을 창의적으로 융합함."
+                },
+                {
+                    title: "오토바이 하부 에어백 부착 안전장치 고안",
+                    type: "통합과학",
+                    semester: "1-1",
+                    text: "충격량이 동일할 때 충돌 시간이 증가함에 따라 받는 힘이 감소함을 학습하고, <span class='highlight'>오토바이 운전 시 빈번한 사고를 줄이기 위해 오토바이 하부에 에어백 소재의 안전장치를 부착</span>하여 부상을 최소화하는 방안을 고안함."
+                },
+                {
+                    title: "리뷰슈머와 지속가능한 소비 보고서",
+                    type: "기술·가정",
+                    semester: "1-2",
+                    text: "지속가능한 소비 단원에서 소비자 유형을 분석하며, <span class='highlight'>리뷰슈머의 역할이 중요함을 인식하고 객관적인 소비자의 입장에서 타인의 소비에 긍정적 영향을 주는 소비자</span>가 되겠다고 다짐함."
+                },
+                {
+                    title: "온라인 쇼핑몰 개인정보 유출 보안 대책",
+                    type: "정보",
+                    semester: "1-2",
+                    text: "개인 정보 유출에 주목하여 온라인 쇼핑몰 개인 정보 유출 사건을 조사하고, <span class='highlight'>개개인의 보안 책임도 시스템 관리자의 보안 책임만큼 중요함을 강조</span>하며 보안 사고 대처 방안을 발표함."
+                },
+                {
+                    title: "팔굽혀펴기 25개 완료 후 근성으로 26개 추가 달성",
+                    type: "체육",
+                    semester: "1-1",
+                    text: "무릎대고 팔굽혀펴기에서 정확한 자세로 25개를 수행한 후 힘든 모습이었지만, <span class='highlight'>근성을 발휘해 무려 26회를 추가로 해내며 총 51개를 기록</span>해 친구들의 박수를 받음. 어려운 상황에서도 포기하지 않는 태도가 돋보임."
+                },
+                {
+                    title: "진로 상담: '사람을 대하고 사람을 위해 일하는 직업'",
+                    type: "행동특성 및 종합의견",
+                    semester: "1-2",
+                    text: "그저 열심히 학교에 다닌 것이 미래를 결정해주지 않았다고 성찰하며 <span class='highlight'>세 번의 진로 상담을 통해 '사람을 대하고 사람을 위해 일하는 직업'을 갖고 싶다는 확고한 결론</span>을 내림."
+                },
+                {
+                    title: "축구 명장면 분석 및 문화 교류 콘텐츠 대안",
+                    type: "진로활동",
+                    semester: "2-1",
+                    text: "'내 피드가 나를 말해준다' 활동에서 축구 경기 흐름과 선수 기용을 분석함. <span class='highlight'>한·외국 선수의 음식 콘텐츠를 일방적 반응 소비가 아닌 서로의 문화를 소개하고 경험하는 방식으로 제안</span>하여 문화 교류 관점의 비판적 사고를 보임."
+                },
+                {
+                    title: "'소설가 구보 씨의 일일' 주체적 삶 비판 인터뷰",
+                    type: "문학",
+                    semester: "2-1",
+                    text: "소설 속 인물 인터뷰 활동에서 의식의 흐름 기법의 효과를 분석하고, <span class='highlight'>소극적이고 무기력한 인물을 그대로 수용하지 않고 비판적으로 바라보며 주체적인 삶의 태도를 강조</span>함."
+                },
+                {
+                    title: "좌우명 작문: '노력은 증명하는 것이지, 설명하는 것 아님'",
+                    type: "영어Ⅰ",
+                    semester: "2-1",
+                    text: "좌우명 작문에서 '노력은 증명하는 것이지, 설명하는 것이 아니다'를 창작함. <span class='highlight'>시험 성적이 기대에 못 미쳤던 경험을 계기로 결과로 증명하는 자세를 다짐</span>하며 자기주도적 성장의지를 표명함."
+                },
+                {
+                    title: "고지도(지구전후도·천하도) 국토관 변천 탐구",
+                    type: "한국지리",
+                    semester: "2-1",
+                    text: "고지도를 통한 국토관의 변화를 탐구함. <span class='highlight'>지구전후도를 통해 경위선 체계와 중국 중심 세계관을 극복한 과학적 성과를 깊이 있게 이해</span>하고 우리 국토와 세계 인식에 미친 영향을 통찰함."
+                },
+                {
+                    title: "페르미 추정 활용 '서울 노숙자 수 추정' 탐구",
+                    type: "수학과제탐구",
+                    semester: "2-1",
+                    text: "페르미 추정을 활용하여 '서울에 노숙자가 몇 명일까?'를 수학적으로 탐구함. <span class='highlight'>인구와 노숙자 비율에 대한 합리적 가정을 설정하고 모델링을 거쳐 추정치가 실제와 유사함을 확인</span>함."
+                },
+                {
+                    title: "도덕적 갈등 3관점 비교 및 도덕적 다원주의 지지",
+                    type: "독서",
+                    semester: "2-2",
+                    text: "도덕적 갈등 글을 읽고 원칙주의와 자유주의의 한계를 지적함. <span class='highlight'>상황에 따라 중시되는 가치가 달라질 수 있고 당사자 간 인간관계를 고려하는 도덕적 다원주의가 타당하다는 판단 기준을 형성</span>함."
+                },
+                {
+                    title: "미분 최적화 함수 설계 및 증가감소표 검증",
+                    type: "수학Ⅱ",
+                    semester: "2-2",
+                    text: "나만의 최적화 함수 만들기 활동에서 <span class='highlight'>조건을 수학적으로 해석해 모델을 재구성하고 미분 개념을 적용해 증가·감소 표를 작성하여 검증</span>함."
+                },
+                {
+                    title: "난징조약 사료 비교 및 현대 기업 진출 협상 전략",
+                    type: "동아시아사",
+                    semester: "2-2",
+                    text: "난징조약의 불평등성을 사료로 규명한 뒤, <span class='highlight'>이를 '정보의 비대칭성'과 '협상력 차이'라는 경영학적 관점으로 분석하여 현대 기업의 상호 이익 협상 전략과 상생 감시 방안을 제시</span>함."
+                },
+                {
+                    title: "품목별 복합 관세·부가세 과세표준 세제 계산식",
+                    type: "경제수학",
+                    semester: "2-2",
+                    text: "의류, 전자제품, 와인, 향수 등 다양한 품목을 대상으로 <span class='highlight'>관세, 주세, 교육세를 합산해 부가세 과세표준을 설정하고 세액을 산출하는 계산식을 체계적으로 도출</span>함."
+                },
+                {
+                    title: "빅데이터 식단 임곗값 정제 및 백업 메커니즘",
+                    type: "정보",
+                    semester: "2-2",
+                    text: "빅데이터 실습에서 식단 데이터의 임곗값 탐지 및 정제 전략을 수행하고, <span class='highlight'>랜섬웨어 공격에 대비하여 시스템 복원 시점 설정 데이터 백업 메커니즘을 심도 있게 분석</span>함."
+                },
+                {
+                    title: "학급 반장: 소외 학생 1:1 경청 및 담임교사 건의",
+                    type: "자율활동",
+                    semester: "3-1",
+                    text: "학급 반장으로서 매일 자율학습에 솔선수범하고, <span class='highlight'>활동에 소극적인 학생들을 한 명씩 직접 찾아가 의견을 경청한 뒤 현실적 분위기 개선안을 담임교사와의 면담을 통해 건의</span>하여 민주적 의사소통을 실천함."
+                },
+                {
+                    title: "화폐 시간가치 딜레마 토론(실질구매력 우위)",
+                    type: "동아리활동",
+                    semester: "3-1",
+                    text: "경제 시사 토론에서 <span class='highlight'>물가 상승으로 인한 실질 구매력 하락을 근거로 화폐의 시간가치 측면에서 현재 가치를 선택하는 것이 합리적임을 명목이 아닌 실질 관점에서 규명</span>함."
+                },
+                {
+                    title: "'부를 끌어당기는 행동습관' 집중 방식 비판 탐구",
+                    type: "진로활동",
+                    semester: "3-1",
+                    text: "'경험이 없으면 스스로 배워야 한다'를 수용하며, <span class='highlight'>저자의 집착적 집중 주장에 의문을 품고 유도리 있는 집중과의 장단점을 비교 분석하여 주체적 학습 모델을 정립</span>함."
+                },
+                {
+                    title: "스트리밍 플랫폼 요금제 표준정규분포 및 95% 모평균 추정",
+                    type: "확률과통계",
+                    semester: "3-1",
+                    text: "OTT 플랫폼 요금제 20개를 표본 추출하여 <span class='highlight'>표준정규분포 모델로 백분위를 파악하고, 신뢰도 95% 조건의 모평균 추정식을 적용해 시장 평균 단가 기댓값 범위를 타당하게 추정</span>함."
+                },
+                {
+                    title: "한국형 국부펀드 '인내 자본' 및 민간 상생 분석",
+                    type: "경제",
+                    semester: "3-1",
+                    text: "한국형 국부펀드 기사를 분석하며 <span class='highlight'>수익성 극대화를 노리는 '인내 자본'의 성격과 국가 자산 운용이 민간 투자를 위축시킬 부작용을 함께 짚으며 상생 자산 운용 전략을 제시</span>함."
+                },
+                {
+                    title: "AI 알고리즘 노동위험 해결(칸트·롤스·맹자 융합)",
+                    type: "생활과윤리",
+                    semester: "3-1",
+                    text: "기업의 AI 도입 문제를 다루며 <span class='highlight'>칸트의 인간성 정식(인간 수단화 금지), 롤스의 차등 원칙(노동자 생존권 보호), 맹자의 견리사의(이익 앞 의로움)를 결합하여 기업 경영 방식 수정을 역설</span>함."
+                },
+                {
+                    title: "스포츠 에이전트 심리 협상(앵커링·프레이밍)",
+                    type: "심리학",
+                    semester: "3-1",
+                    text: "스포츠 에이전트를 희망하며 <span class='highlight'>구단과의 협상에서 앵커링 효과와 프레이밍 기법을 제안하고, 선수 슬럼프 극복을 위한 공감 멘탈 케어 기술을 체계화</span>함. 메타인지 분석으로 분석력 보완 과제를 도출함."
+                },
+                {
+                    title: "한국형 블랙기업 실태 및 징벌적 손배·정보공시 제안",
+                    type: "사회문제탐구",
+                    semester: "3-1",
+                    text: "국내 전자상거래 미정산 사태와 유제품 기업 갑질 사례를 고찰하고, <span class='highlight'>기업의 성장이 노동자 인권 보장 위에서 이루어져야 함을 강조하며 손해배상제 강화와 정보공시 의무화를 주장</span>함."
+                },
+                {
+                    title: "밸런스보드 자기통제와 경제학적 객관성 연결",
+                    type: "운동과건강",
+                    semester: "3-1",
+                    text: "밸런스보드 위에서 시선을 고정하고 외적 소음을 차단하는 훈련을 통해 <span class='highlight'>불필요한 변수에 흔들리지 않는 자기통제력을 길렀으며, 이를 다양한 정보를 분석해 객관적 결정을 내리는 경제학적 역량과 연결</span>함."
+                }
+            ],
+            wiki: [
+                {
+                    term: "화폐의 시간 가치 (Time Value of Money)",
+                    desc: "동일한 명목 화폐라도 물가 상승(인플레이션)과 이자율로 인해 미래 시점보다 현재 시점의 실질 구매력이 더 크다는 경제학의 기본 원리입니다. 자산운용 및 투자 평가의 핵심 기준이 됩니다."
+                },
+                {
+                    term: "인내 자본 (Patient Capital)",
+                    desc: "단기적인 분기별 실적이나 시세 차익 압박에 얽매이지 않고, 국가 미래 전략 산업 육성이나 장기적 국부 축적을 위해 10년 이상의 긴 안목으로 투자되는 국부펀드 성격의 자본입니다."
+                },
+                {
+                    term: "페르미 추정 (Fermi Estimation)",
+                    desc: "기초 정보가 부족한 상황에서 논리적 가설과 상식적 분할 가정을 통해 단시간 내에 근사치를 계산해내는 수학적 모델링 기법입니다. (예: 서울 시내 노숙자 수 추정)"
+                },
+                {
+                    term: "정보의 비대칭성 (Information Asymmetry)",
+                    desc: "거래 당사자 간 보유한 정보의 양과 질에 불균형이 발생하는 상태로, 역사적 불평등 조약(난징조약)이나 현대 대기업과 중소 협력업체 간 불공정 계약의 핵심 구조적 원인입니다."
+                },
+                {
+                    term: "앵커링 효과 & 프레이밍 기법",
+                    desc: "초기 제시된 수치가 기준점(닻)이 되어 후속 판단을 좌우하는 앵커링과, 동일한 사실도 표현의 틀에 따라 상대방의 의사결정이 달라지는 협상 심리학 기법입니다."
+                },
+                {
+                    term: "베블런 효과 & 밴드웨건 효과",
+                    desc: "가격이 오를수록 과시욕으로 수요가 증가하는 현상(베블런)과, 타인의 소비를 모방하여 유행에 편승하려는 현상(밴드웨건)을 일컫는 대표적 비합리적 소비 이론입니다."
+                },
+                {
+                    term: "롤스의 차등 원칙 (Difference Principle)",
+                    desc: "사회적·경제적 불평등은 사회의 가장 열악한 처지에 있는 최소수혜자에게 최대의 이익이 돌아갈 때에만 정당화될 수 있다는 존 롤스 정의론의 핵심 원칙입니다."
+                },
+                {
+                    term: "리뷰슈머 (Reviewsumer)",
+                    desc: "제품이나 서비스를 사용한 후 객관적이고 신뢰성 있는 비평과 후기를 적극 생산하여 다른 소비자들의 선택을 돕고 기업의 혁신을 유도하는 능동적 소비자입니다."
+                },
+                {
+                    term: "표준정규분포 및 95% 모평균 추정",
+                    desc: "표본의 통계량을 표준화(Z변환)하여 전체 집단 내 백분위를 파악하고, 신뢰수준 95% 하에서 모집단 전체의 평균 단가 기댓값 범위를 정량적으로 추정하는 통계 알고리즘입니다."
+                },
+                {
+                    term: "시스템 복원 시점 백업 (System Restore Point)",
+                    desc: "랜섬웨어 감염이나 시스템 파일 오류 발생 시, 개인 파일의 영구 손실 없이 운영체제와 중요 레지스트리를 과거 정상 시점으로 롤백시키는 핵심 정보 보안 메커니즘입니다."
+                }
+            ],
+            classification: [
+                { original: "1학년 1학기 자율활동", title: "교내 합창제 마찰 중재 및 분위기 조성", semester: "1-1", category: "교육계열" },
+                { original: "1학년 1학기 동아리활동", title: "또래상담 대화전략 실습 및 타로 상담", semester: "1-1", category: "사회계열" },
+                { original: "1학년 2학기 진로활동", title: "지역사회 행정 투명성 및 정책 보고서", semester: "1-2", category: "사회계열" },
+                { original: "1학년 1학기 세특(수학)", title: "시간-감정 이차함수 및 스트레스 역함수", semester: "1-1", category: "자연계열" },
+                { original: "1학년 1학기 세특(통합사회)", title: "저출산 사회현상 원인 및 소수자우대정책", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 세특(통합과학)", title: "메테인 연소 화학식 및 온실효과 고찰", semester: "1-1", category: "자연계열" },
+                { original: "1학년 1학기 세특(통합과학)", title: "충격량-시간 안전장치(오토바이 에어백)", semester: "1-1", category: "공학계열" },
+                { original: "1학년 1학기 세특(과학탐구실험)", title: "종이 아치 구조물 하중 분산 원리", semester: "1-1", category: "공학계열" },
+                { original: "1학년 2학기 세특(기술·가정)", title: "리뷰슈머와 지속가능한 소비 보고서", semester: "1-2", category: "사회계열" },
+                { original: "1학년 2학기 세특(정보)", title: "온라인 쇼핑몰 개인정보 유출 보안 대책", semester: "1-2", category: "공학계열" },
+                { original: "1학년 1학기 세특(체육)", title: "팔굽혀펴기 51개 완수 및 배구 분석", semester: "1-1", category: "예체능계열" },
+                { original: "1학년 1학기 세특(음악)", title: "우쿨렐레 이중주 암보 및 반주 지도", semester: "1-1", category: "예체능계열" },
+                { original: "2학년 1학기 자율활동", title: "스포츠 매니저 적성 및 저출산 신문 분석", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 진로활동", title: "축구 명장면 및 선수 교체 다각 추론", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 진로활동", title: "음식 콘텐츠 기반 상호 문화 교류 대안", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(문학)", title: "장석남 상호텍스트 분석 및 구보 씨 비판", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(수학Ⅰ)", title: "뉴턴 냉각법칙과 투자수익률 지수함수", semester: "2-1", category: "자연계열" },
+                { original: "2학년 1학기 세특(한국지리)", title: "고지도(지구전후도·천하도) 국토관 변천", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(사회·문화)", title: "저출산 고령화 및 생산인구 감소 분석", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 세특(수학과제탐구)", title: "페르미 추정 활용 '서울 노숙자 수 추정'", semester: "2-1", category: "자연계열" },
+                { original: "2학년 2학기 세특(독서)", title: "도덕적 갈등 비교 및 도덕적 다원주의 지지", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 세특(수학Ⅱ)", title: "미분 최적화 함수 설계 및 증감표 검증", semester: "2-2", category: "자연계열" },
+                { original: "2학년 2학기 세특(동아시아사)", title: "난징조약 사료 비교 및 현대 기업 진출 협상", semester: "2-2", category: "사회계열" },
+                { original: "2학년 2학기 세특(경제수학)", title: "품목별 복합 관세·부가세 과세표준 세제 계산", semester: "2-2", category: "사회계열" },
+                { original: "2학년 2학기 세특(정보)", title: "식단 빅데이터 정제 및 복원 시점 백업", semester: "2-2", category: "공학계열" },
+                { original: "2학년 1학기 세특(미술창작)", title: "생성형 AI 도구 활용 캐릭터 서사 창작", semester: "2-1", category: "예체능계열" },
+                { original: "3학년 1학기 자율활동", title: "학급 반장 1:1 학생 경청 및 건의", semester: "3-1", category: "교육계열" },
+                { original: "3학년 1학기 동아리활동", title: "화폐 시간가치 딜레마 토론(실질구매력)", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 진로활동", title: "'부를 끌어당기는 행동습관' 집중 방식 비판", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 세특(확률과통계)", title: "OTT 요금제 표준정규분포 및 95% 모평균 추정", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 세특(경제)", title: "한국형 국부펀드 '인내 자본' 및 민간 상생", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 세특(생활과윤리)", title: "AI 노동위험 해결(칸트·롤스·맹자 사상)", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 세특(심리학)", title: "스포츠 에이전트 심리 협상 및 메타인지", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 세특(사회문제탐구)", title: "블랙기업 실태 분석 및 징벌적 손배 제안", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 세특(운동과건강)", title: "밸런스보드 자기통제와 경제학적 객관성 연결", semester: "3-1", category: "예체능계열" }
+            ]
+        };
+
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contents = document.querySelectorAll('.tab-content');
+        let network1 = null, network2 = null;
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const targetId = tab.dataset.target;
+                const targetContent = document.getElementById(targetId);
+                targetContent.classList.add('active');
+
+                if(targetId === 'tab-graph' && network1) setTimeout(() => network1.fit(), 50);
+                if(targetId === 'tab-tree' && network2) setTimeout(() => network2.fit(), 50);
+                if(targetId === 'tab-reclass') {
+                    setTimeout(drawMappingConnections, 60);
+                }
+            });
+        });
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline-render');
+            let html = '';
+            studentData.timeline.forEach(gradeObj => {
+                html += `<div class="grade-col">
+                            <div class="grade-header">${gradeObj.grade} 전수 활동 기록</div>
+                            <div class="semester-row">`;
+                gradeObj.semesters.forEach(sem => {
+                    html += `<div class="semester-col">
+                                <div class="semester-title">${sem.term} (${sem.activities.length}개)</div>`;
+                    sem.activities.forEach(act => {
+                        html += `<div class="act-card">
+                                    <div class="tag-wrap" style="margin-bottom:8px;">
+                                        <span class="tag" style="background:var(--primary-color); color:var(--white); border:none;">${act.type}</span>
+                                        <span class="tag">${act.semester}</span>
+                                    </div>
+                                    <div class="act-title">${act.title}</div>
+                                 </div>`;
+                    });
+                    html += `</div>`;
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderStory() {
+            const container = document.getElementById('story-render');
+            let html = '';
+            studentData.story.forEach(s => {
+                html += `<div class="story-box">
+                            <div class="story-header">
+                                <div class="story-title">${s.title}</div>
+                                <div class="tag-wrap"><span class="tag" style="background:var(--primary-light); color:#fff; border:none;">${s.type}</span></div>
+                            </div>
+                            <div class="story-ai">${s.interpretation}</div>
+                            <div class="story-flow">`;
+                s.steps.forEach((step, idx) => {
+                    html += `<div class="story-node">
+                                <div>
+                                    <span class="time">${step.time} · ${step.detail}</span>
+                                    <div class="act-title" style="margin:0; font-size:14px;">${step.title}</div>
+                                </div>
+                             </div>`;
+                    if(idx < s.steps.length - 1) {
+                        html += `<div class="story-arrow">➔</div>`;
+                    }
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderEvidenceAndWiki() {
+            const evContainer = document.getElementById('evidence-render');
+            let evHtml = '';
+            studentData.evidence.forEach(ev => {
+                evHtml += `<div class="evidence-card">
+                            <div>
+                                <div class="tag-wrap" style="margin-bottom:12px;">
+                                    <span class="tag" style="background:var(--primary-color); color:var(--white); border:none; font-size:12px;">${ev.type}</span>
+                                    <span class="tag" style="font-size:12px;">${ev.semester}</span>
+                                </div>
+                                <h4>${ev.title}</h4>
+                            </div>
+                            <div class="evidence-text">"${ev.text}"</div>
+                           </div>`;
+            });
+            evContainer.innerHTML = evHtml;
+
+            const wContainer = document.getElementById('wiki-render');
+            let wHtml = '';
+            studentData.wiki.forEach(w => {
+                wHtml += `<div class="evidence-card" style="padding:22px; justify-content:flex-start;">
+                            <h4 style="margin-bottom:10px; font-size:16px; color:var(--primary-color); border-bottom:1px dashed var(--secondary-color); padding-bottom:6px;">${w.term}</h4>
+                            <div style="font-size:13.5px; color:var(--text-dark); line-height:1.7;">${w.desc}</div>
+                          </div>`;
+            });
+            wContainer.innerHTML = wHtml;
+        }
+
+        function renderClassification() {
+            const leftGroups = {};
+            const rightGroups = {};
+            const categories = ["사회계열", "인문계열", "공학계열", "자연계열", "의약계열", "교육계열", "예체능계열", "기타"];
+            categories.forEach(c => rightGroups[c] = []);
+
+            studentData.classification.forEach((item, index) => {
+                const id = `map-item-${index}`;
+                item._id = id; 
+                
+                if(!leftGroups[item.original]) leftGroups[item.original] = [];
+                leftGroups[item.original].push(item);
+                
+                let cat = item.category;
+                if(!cat.includes("계열") && cat !== "기타") cat += "계열";
+                if(!rightGroups[cat]) rightGroups[cat] = [];
+                rightGroups[cat].push(item);
+            });
+
+            let leftHtml = '';
+            Object.keys(leftGroups).forEach(groupName => {
+                leftHtml += `<div class="map-group"><div class="map-group-title">${groupName}</div>`;
+                leftGroups[groupName].forEach(item => {
+                    leftHtml += `<div class="map-item left-item" id="left-${item._id}" data-target="right-${item._id}">
+                                    ${item.title} <span class="time-tag">${item.semester}</span>
+                                 </div>`;
+                });
+                leftHtml += `</div>`;
+            });
+            document.getElementById('map-left').innerHTML = leftHtml;
+
+            let rightHtml = '';
+            categories.forEach(groupName => {
+                if(rightGroups[groupName] && rightGroups[groupName].length > 0) {
+                    rightHtml += `<div class="map-group"><div class="map-group-title" style="border-color:var(--primary-color); color:var(--primary-color);">${groupName} (${rightGroups[groupName].length}건)</div>`;
+                    rightGroups[groupName].forEach(item => {
+                        rightHtml += `<div class="map-item right-item" id="right-${item._id}">
+                                        ${item.title} <span class="time-tag">${item.semester}</span>
+                                     </div>`;
+                    });
+                    rightHtml += `</div>`;
+                }
+            });
+            document.getElementById('map-right').innerHTML = rightHtml;
+
+            // 활동 분류 인쇄 전용 엑셀(Table) 표 렌더링 (계열별 rowspan 셀 병합)
+            let printHtml = '<table class="print-reclass-table">';
+            printHtml += '<thead><tr><th>계열</th><th>시기 및 기재 항목</th><th>활동 요약</th></tr></thead><tbody>';
+            
+            const printCategories = ["사회계열", "인문계열", "공학계열", "자연계열", "의약계열", "교육계열", "예체능계열", "기타"];
+            
+            printCategories.forEach(catGroup => {
+                let items = studentData.classification.filter(item => {
+                    let c = item.category;
+                    if(!c.includes("계열") && c !== "기타") c += "계열";
+                    return c === catGroup;
+                });
+                
+                if(items.length > 0) {
+                    items.sort((a, b) => a.semester.localeCompare(b.semester));
+                    
+                    items.forEach((item, idx) => {
+                        printHtml += `<tr>`;
+                        if(idx === 0) {
+                            printHtml += `<td rowspan="${items.length}" style="text-align:center; font-weight:bold; color:var(--primary-color); vertical-align:middle; background:#FAF7F2;">${catGroup}</td>`;
+                        }
+                        printHtml += `<td><span class="time-tag-print">${item.semester}</span> ${item.original}</td>
+                                      <td><strong>${item.title}</strong></td>
+                                    </tr>`;
+                    });
+                }
+            });
+            printHtml += '</tbody></table>';
+            
+            let tabReclass = document.getElementById('tab-reclass');
+            let printDiv = document.getElementById('print-reclass-wrap');
+            if(!printDiv) {
+                printDiv = document.createElement('div');
+                printDiv.id = 'print-reclass-wrap';
+                tabReclass.appendChild(printDiv);
+            }
+            printDiv.innerHTML = printHtml;
+        }
+
+        function drawMappingConnections() {
+            const svg = document.getElementById('mapping-svg');
+            const wrap = document.querySelector('.mapping-container');
+            if(!svg || !wrap) return;
+            
+            svg.style.width = '100%';
+            svg.style.height = wrap.scrollHeight + 'px';
+            svg.innerHTML = ''; 
+
+            const svgRect = svg.getBoundingClientRect();
+            const leftItems = document.querySelectorAll('.left-item');
+            
+            leftItems.forEach(leftNode => {
+                const targetId = leftNode.dataset.target;
+                const rightNode = document.getElementById(targetId);
+                
+                if (rightNode) {
+                    const lRect = leftNode.getBoundingClientRect();
+                    const rRect = rightNode.getBoundingClientRect();
+
+                    const startX = lRect.right - svgRect.left;
+                    const startY = lRect.top + (lRect.height / 2) - svgRect.top;
+                    const endX = rRect.left - svgRect.left;
+                    const endY = rRect.top + (rRect.height / 2) - svgRect.top;
+
+                    const controlPointX = (startX + endX) / 2;
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${startX} ${startY} C ${controlPointX} ${startY}, ${controlPointX} ${endY}, ${endX} ${endY}`);
+                    path.setAttribute('stroke', '#E6DDD6');
+                    path.setAttribute('stroke-width', '1.5');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('class', 'map-path');
+                    path.style.transition = '0.2s';
+                    
+                    svg.appendChild(path);
+
+                    leftNode.addEventListener('mouseenter', () => highlightPath(path, rightNode));
+                    leftNode.addEventListener('mouseleave', () => resetPath(path, rightNode));
+                    rightNode.addEventListener('mouseenter', () => highlightPath(path, leftNode));
+                    rightNode.addEventListener('mouseleave', () => resetPath(path, leftNode));
+                }
+            });
+        }
+
+        function highlightPath(path, relatedNode) {
+            path.setAttribute('stroke', '#8C6A50');
+            path.setAttribute('stroke-width', '3');
+            relatedNode.classList.add('hovered');
+            path.parentNode.appendChild(path);
+        }
+        function resetPath(path, relatedNode) {
+            path.setAttribute('stroke', '#E6DDD6');
+            path.setAttribute('stroke-width', '1.5');
+            relatedNode.classList.remove('hovered');
+        }
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('tab-reclass').classList.contains('active')) {
+                drawMappingConnections();
+            }
+        });
+
+        function initNetworks() {
+            const groupStyles = {
+                student: { color: { background: '#8C6A50', border: '#70543F' }, font: { color: '#FFFFFF', size: 17 } },
+                interest: { color: { background: '#F9E79F', border: '#D4AC0D' }, font: { color: '#332B25', size: 13 } },
+                activity: { color: { background: '#85C1E9', border: '#2980B9' }, font: { color: '#1B2631', size: 13 } },
+                competence: { color: { background: '#82E0AA', border: '#27AE60' }, font: { color: '#145A32', size: 13.5 } },
+                concept: { color: { background: '#D7BDE2', border: '#884EA0' }, font: { color: '#4A235A', size: 13 } },
+                lesson: { color: { background: '#F8C471', border: '#D35400' }, font: { color: '#6E2C00', size: 13 } }
+            };
+
+            const defaultNodeStyle = {
+                shape: 'box', margin: 12, borderWidth: 2,
+                font: { face: 'Pretendard', multi: true, bold: true },
+                shadow: { enabled: true, color: 'rgba(0,0,0,0.08)', size: 8, x: 2, y: 3 }
+            };
+
+            const container1 = document.getElementById('network-container');
+            const nodes1 = new vis.DataSet(studentData.graph.nodes.map(n => ({
+                ...n, ...defaultNodeStyle, 
+                ...(groupStyles[n.group] || { color: { background: '#F4EFEB', border: '#D4C3B3'} })
+            })));
+            
+            const edges1 = new vis.DataSet(studentData.graph.edges.map(e => ({
+                ...e,
+                color: e.dashes ? '#BCAAA4' : '#8C6A50',
+                width: e.dashes ? 1.2 : 3.0,
+                smooth: { type: 'continuous' }
+            })));
+
+            const options1 = {
+                interaction: { hover: true, tooltipDelay: 150 },
+                physics: {
+                    stabilization: { enabled: true, iterations: 180 },
+                    barnesHut: {
+                        gravitationalConstant: -2800,
+                        centralGravity: 0.25,
+                        springLength: 160,
+                        springConstant: 0.03,
+                        damping: 0.25
+                    }
+                }
+            };
+            network1 = new vis.Network(container1, {nodes: nodes1, edges: edges1}, options1);
+            
+            network1.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    const selectedNode = params.nodes[0];
+                    const connectedNodes = network1.getConnectedNodes(selectedNode);
+                    connectedNodes.push(selectedNode);
+
+                    const allNodes = nodes1.get();
+                    nodes1.update(allNodes.map(node => ({
+                        id: node.id,
+                        opacity: connectedNodes.includes(node.id) ? 1 : 0.12
+                    })));
+                    
+                    const allEdges = edges1.get();
+                    edges1.update(allEdges.map(edge => ({
+                        id: edge.id,
+                        opacity: (edge.from === selectedNode || edge.to === selectedNode) ? 1 : 0.04
+                    })));
+                } else {
+                    nodes1.update(nodes1.get().map(node => ({ id: node.id, opacity: 1 })));
+                    edges1.update(edges1.get().map(edge => ({ id: edge.id, opacity: 1 })));
+                }
+            });
+
+            // 역량 트리 네트워크 (LR 계층 구조)
+            const container2 = document.getElementById('tree-container');
+            const nodes2 = new vis.DataSet(studentData.competenceTree.nodes.map(n => {
+                let bg = n.level === 0 ? '#8C6A50' : (n.level === 1 ? '#D4C3B3' : '#FDFBF7');
+                let bc = n.level === 0 ? '#70543F' : (n.level === 1 ? '#A8866C' : '#E6DDD6');
+                let fc = n.level === 0 ? '#FFFFFF' : (n.level === 1 ? '#332B25' : '#4A3B32');
+                return {...n, ...defaultNodeStyle, color: {background: bg, border: bc}, font: {color: fc, size: n.level === 0 ? 16 : (n.level === 1 ? 14 : 12.5)}};
+            }));
+            const edges2 = new vis.DataSet(studentData.competenceTree.edges);
+            const options2 = {
+                layout: { hierarchical: { direction: "LR", sortMethod: "directed", levelSeparation: 320, nodeSpacing: 80 } },
+                edges: { smooth: { type: "cubicBezier", forceDirection: "horizontal" }, color: '#C8B7A6', width: 2 },
+                physics: false,
+                interaction: { dragNodes: false }
+            };
+            network2 = new vis.Network(container2, {nodes: nodes2, edges: edges2}, options2);
+        }
+
+        window.onload = () => {
+            renderTimeline();
+            renderStory();
+            renderEvidenceAndWiki();
+            renderClassification();
+            initNetworks();
+        };
+    </script>
+</body>
+</html>
