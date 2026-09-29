@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>살아있는 생기부 심층 시각화 리포트 - 학생A</title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #FDFBF7;
+            --primary-color: #8C6A50;
+            --primary-light: #A8866C;
+            --secondary-color: #E6DDD6;
+            --secondary-light: #F4EFEB;
+            --text-dark: #332B25;
+            --text-muted: #7A7068;
+            --white: #FFFFFF;
+            --highlight: rgba(140, 106, 80, 0.22);
+            --accent-green: #2E7D32;
+            --accent-blue: #1976D2;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); line-height: 1.6; overflow-y: auto; }
+
+        header {
+            background-color: var(--white); padding: 22px 40px;
+            border-bottom: 2px solid var(--secondary-color);
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .title-area h1 { font-size: 22px; color: var(--primary-color); font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .title-area h1::before { content: ''; display: inline-block; width: 14px; height: 14px; background: #C4F000; border-radius: 50%; border: 2px solid var(--text-dark); }
+        .title-area p { font-size: 13.5px; color: var(--text-muted); margin-top: 4px; }
+        .btn-print { background-color: var(--primary-color); color: var(--white); border: none; padding: 10px 22px; border-radius: 20px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 14px; box-shadow: 0 2px 6px rgba(140,106,80,0.25); }
+        .btn-print:hover { background-color: #70543F; }
+
+        .tabs { display: flex; gap: 24px; padding: 0 40px; background-color: var(--white); border-bottom: 1px solid var(--secondary-color); overflow-x: auto; position: sticky; top: 78px; z-index: 99; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+        .tab-btn { background: none; border: none; padding: 16px 4px; font-size: 15px; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; transition: color 0.2s; }
+        .tab-btn.active { color: var(--text-dark); }
+        .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background-color: var(--primary-color); }
+
+        main { padding: 40px; max-width: 1680px; margin: 0 auto; min-height: calc(100vh - 160px); height: auto; }
+        .tab-content { display: none; height: auto; animation: fadeIn 0.3s ease-in-out; padding-bottom: 60px; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .section-desc { font-size: 15px; color: var(--text-muted); margin-bottom: 25px; line-height: 1.7; background: #FAF7F2; padding: 16px 20px; border-radius: 10px; border-left: 4px solid var(--primary-color); }
+
+        .graph-container { width: 100%; height: 750px; background: var(--white); border-radius: 14px; border: 1px solid var(--secondary-color); box-shadow: 0 4px 18px rgba(0,0,0,0.03); }
+
+        .timeline-scroll { display: flex; gap: 24px; overflow-x: auto; padding-bottom: 25px; align-items: flex-start; -webkit-overflow-scrolling: touch; }
+        .grade-col { flex: 0 0 520px; max-width: 100%; background: var(--white); border: 1px solid var(--secondary-color); border-radius: 14px; display: flex; flex-direction: column; box-shadow: 0 3px 12px rgba(0,0,0,0.02); }
+        .grade-header { background: var(--secondary-light); padding: 16px; text-align: center; font-weight: 700; font-size: 16px; color: var(--primary-color); border-bottom: 1px solid var(--secondary-color); border-radius: 14px 14px 0 0;}
+        .semester-row { display: flex; flex: 1; }
+        .semester-col { flex: 1; padding: 16px; border-right: 1px dashed var(--secondary-color); }
+        .semester-col:last-child { border-right: none; }
+        .semester-title { font-size: 13.5px; font-weight: 700; margin-bottom: 16px; color: var(--primary-light); text-align: center; background: #FAF7F2; padding: 6px 0; border-radius: 6px; }
+        
+        .act-card { background: var(--white); border: 1px solid var(--secondary-color); padding: 14px 15px; border-radius: 9px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.02); line-height: 1.45; transition: transform 0.15s, border-color 0.15s; }
+        .act-card:hover { transform: translateY(-2px); border-color: var(--primary-light); }
+        .act-title { font-weight: 600; font-size: 13.5px; margin-bottom: 8px; color: var(--text-dark); word-break: keep-all;}
+        .tag-wrap { display: flex; gap: 5px; flex-wrap: wrap; }
+        .tag { font-size: 11px; padding: 2px 7px; border-radius: 12px; background: var(--secondary-light); color: var(--text-muted); border: 1px solid var(--secondary-color); font-weight: 500; }
+
+        .story-container { display: flex; flex-direction: column; gap: 28px; }
+        .story-box { background: var(--white); border: 1px solid var(--secondary-color); border-radius: 14px; padding: 28px; box-shadow: 0 4px 15px rgba(0,0,0,0.025); }
+        .story-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+        .story-title { font-size: 18.5px; font-weight: 700; color: var(--text-dark); word-break: keep-all; }
+        .story-ai { background: var(--secondary-light); border-left: 4px solid var(--primary-color); padding: 16px 20px; border-radius: 0 10px 10px 0; margin-bottom: 24px; font-size: 14px; color: var(--text-dark); line-height: 1.7; }
+        .story-flow { display: flex; align-items: stretch; gap: 14px; overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
+        .story-node { flex: 1; min-width: 230px; max-width: 320px; background: #FCFAF7; border: 1px solid var(--secondary-color); padding: 16px; border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+        .story-node .time { font-size: 12px; color: var(--primary-color); font-weight: 700; margin-bottom: 6px; display: block; }
+        .story-arrow { color: var(--primary-light); font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+
+        .evidence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; align-items: stretch; }
+        .evidence-card { background: var(--white); border: 1px solid var(--secondary-color); border-radius: 12px; padding: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; }
+        .evidence-card h4 { font-size: 15px; margin-bottom: 12px; color: var(--text-dark); line-height: 1.45; font-weight: 700; }
+        .highlight { background-color: var(--highlight); padding: 1px 4px; border-radius: 3px; font-weight: 600; color: #5B3A29; }
+        .evidence-text { font-size: 13px; line-height: 1.8; color: var(--text-muted); background: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px solid #EFEAE3; }
+
+        .mapping-container { display: flex; position: relative; min-height: 800px; align-items: stretch; }
+        .mapping-col { width: 460px; max-width: 100%; padding: 10px; z-index: 2; display: flex; flex-direction: column; gap: 24px; }
+        .mapping-canvas-wrap { flex: 1; position: relative; min-width: 100px; z-index: 1; }
+        #mapping-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .map-group-title { font-size: 14.5px; font-weight: 700; color: var(--text-dark); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--secondary-color); }
+        .map-item { background: var(--white); border: 1px solid var(--secondary-color); padding: 12px 14px; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.02); position: relative; transition: 0.18s; cursor: pointer; line-height: 1.35;}
+        .map-item .time-tag { float: right; font-size: 11.5px; color: var(--primary-light); font-weight: normal; background: var(--secondary-light); padding: 2px 7px; border-radius: 10px;}
+        .map-item.hovered { border-color: var(--primary-color); background: #FAF5F0; transform: scale(1.02); z-index: 10; box-shadow: 0 4px 10px rgba(140,106,80,0.15); }
+
+        .wiki-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; }
+
+        /* 모바일 및 태블릿 최적화 (아이폰/아이패드 반응형 처리) */
+        @media screen and (max-width: 1024px) {
+            header { padding: 15px 20px; flex-direction: column; gap: 12px; align-items: flex-start; position: relative; }
+            .title-area h1 { font-size: 18px; }
+            .title-area p { font-size: 12px; line-height: 1.4; }
+            .btn-print { width: 100%; text-align: center; margin-top: 5px; }
+            .tabs { padding: 0 15px; top: 0; position: relative; }
+            main { padding: 20px 15px; }
+            .graph-container { height: 500px; }
+            .section-desc { font-size: 13.5px; padding: 12px 15px; }
+            
+            /* 타임라인 1단 세로 배치 */
+            .timeline-scroll { flex-direction: column; gap: 15px; }
+            .grade-col { width: 100%; flex: auto; }
+            .semester-row { flex-direction: column; }
+            .semester-col { border-right: none; border-bottom: 1px dashed var(--secondary-color); }
+            .semester-col:last-child { border-bottom: none; }
+            
+            /* 스토리 1단 세로 배치 */
+            .story-box { padding: 20px 15px; }
+            .story-title { font-size: 16px; }
+            .story-flow { flex-direction: column; gap: 5px; }
+            .story-node { min-width: 100%; max-width: 100%; width: 100%; }
+            .story-arrow { transform: rotate(90deg); padding: 5px 0; height: 30px; }
+            
+            /* 그리드 사이즈 조절 */
+            .evidence-grid, .wiki-grid { grid-template-columns: 1fr; }
+            
+            /* 맵핑 연결선 숨김 및 세로 배치 */
+            .mapping-container { flex-direction: column; min-height: auto; }
+            .mapping-col { width: 100%; }
+            .mapping-canvas-wrap { display: none; }
+        }
+
+        /* 인쇄 전용 설정 (@media print) */
+        @media print {
+            @page { size: A4 portrait; margin: 12mm; }
+            body { background: white; overflow: visible !important; font-size: 10pt !important; }
+            header .btn-print, .tabs, .section-desc { display: none !important; }
+            main { height: auto !important; padding: 0 !important; margin: 0 !important; max-width: none !important; min-height: 0 !important; display: block !important; }
+            
+            .tab-content { display: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+            #tab-timeline, #tab-story, #tab-evidence, #tab-reclass { display: block !important; opacity: 1 !important; visibility: visible !important; }
+            
+            #tab-timeline, #tab-story, #tab-evidence { page-break-after: always; }
+            #tab-reclass { page-break-after: auto; }
+
+            .act-card, .story-box, .evidence-card, tr { page-break-inside: avoid !important; }
+            .timeline-scroll, .story-container, .evidence-grid { height: auto !important; overflow: visible !important; display: block !important; }
+            
+            .timeline-scroll { margin-top: 0; }
+            .grade-col { width: 100% !important; margin-bottom: 15px !important; border: 1px solid var(--secondary-color) !important; box-shadow: none !important; flex: none !important; }
+            .grade-header { padding: 8px !important; font-size: 12pt !important; }
+            .semester-row { display: flex !important; }
+            .semester-col { padding: 10px !important; }
+            .semester-title { font-size: 11pt !important; margin-bottom: 8px !important; padding: 4px 0 !important; }
+            .act-card { padding: 8px 10px !important; margin-bottom: 8px !important; border-radius: 6px !important; box-shadow: none !important; }
+            .act-title { font-size: 10.5pt !important; margin-bottom: 4px !important; line-height: 1.35 !important; }
+            .tag { font-size: 8pt !important; padding: 1px 5px !important; }
+
+            .story-container { gap: 15px !important; }
+            .story-box { padding: 15px !important; border-radius: 8px !important; box-shadow: none !important; }
+            .story-header { margin-bottom: 8px !important; }
+            .story-title { font-size: 13pt !important; }
+            .story-ai { padding: 10px 12px !important; margin-bottom: 12px !important; font-size: 10pt !important; line-height: 1.45 !important; }
+            .story-flow { gap: 8px !important; flex-wrap: wrap !important; }
+            .story-node { padding: 10px !important; min-width: 0 !important; max-width: none !important; flex: 1 1 0% !important; border-radius: 6px !important; }
+            .story-node .time { font-size: 9pt !important; margin-bottom: 4px !important; }
+            .story-node .act-title { font-size: 10pt !important; line-height: 1.35 !important; }
+            .story-arrow { display: none !important; }
+
+            .evidence-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 12px !important; }
+            .evidence-card { padding: 14px !important; border-radius: 8px !important; box-shadow: none !important; }
+            .evidence-card h4 { font-size: 11pt !important; margin-bottom: 8px !important; }
+            .evidence-text { font-size: 10pt !important; padding: 10px !important; line-height: 1.45 !important; }
+
+            .mapping-container { display: none !important; }
+            .print-reclass-table { display: table !important; width: 100%; border-collapse: collapse; margin-top: 0; }
+            .print-reclass-table th, .print-reclass-table td { border: 1px solid var(--secondary-color); padding: 8px 10px; text-align: left; font-size: 10pt; color: var(--text-dark); line-height: 1.4; page-break-inside: avoid; }
+            .print-reclass-table th { background-color: var(--secondary-light); color: var(--primary-color); font-weight: 700; text-align: center; }
+            .print-reclass-table td:nth-child(1) { width: 15%; text-align: center; font-weight: 700; color: var(--primary-color); background: #FAF7F2; vertical-align: middle; }
+            .print-reclass-table td:nth-child(2) { width: 35%; }
+            .print-reclass-table td:nth-child(3) { width: 50%; }
+            .time-tag-print { display: inline-block; font-size: 8pt; background: var(--secondary-light); color: var(--primary-color); padding: 2px 5px; border-radius: 4px; margin-right: 5px; font-weight: 600; }
+        }
+
+        @media screen {
+            .print-reclass-table { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-area">
+            <h1>살아있는 생기부 심층 시각화 리포트</h1>
+            <p>학생A(본교) · 3개년 98개 전수 기록 1:1 교차 검증 완료 · 제과제빵·식품과학·푸드테크 융합 프로파일</p>
+        </div>
+        <button class="btn-print" onclick="window.print()">보고서 인쇄 / PDF 저장</button>
+    </header>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-target="tab-graph">키워드 노드표</button>
+        <button class="tab-btn" data-target="tab-timeline">학년간 활동 (전수 98건)</button>
+        <button class="tab-btn" data-target="tab-story">주제 묶기 (10대 심층 서사)</button>
+        <button class="tab-btn" data-target="tab-tree">역량 확인 (8대 핵심 체계)</button>
+        <button class="tab-btn" data-target="tab-evidence">원문 확인 (1:1 무결성 검증)</button>
+        <button class="tab-btn" data-target="tab-wiki">AI 학습 사전</button>
+        <button class="tab-btn" data-target="tab-reclass">활동 분류 (8대 계열 매핑)</button>
+    </div>
+
+    <main>
+        <!-- 1. 키워드 노드표 -->
+        <div id="tab-graph" class="tab-content active">
+            <div class="section-desc">
+                학생A를 중심으로 관심사, 활동, 역량, 개념, 배움이 어떻게 유기적으로 확장되는지 보여주는 입체적 지식망입니다.<br>
+                <b>범례:</b> 중앙(갈색: 학생), 노란색(관심사), 파란색(활동), 초록색(역량), 보라색(핵심개념), 주황색(성찰/배움) &nbsp;|&nbsp; <b>연결선:</b> 굵은 실선(핵심 근거), 가는 점선(보조/심화 근거) &nbsp;|&nbsp; <i>노드를 클릭하면 연결된 요소만 포커스됩니다.</i>
+            </div>
+            <div id="network-container" class="graph-container"></div>
+        </div>
+
+        <!-- 2. 학년간 활동 -->
+        <div id="tab-timeline" class="tab-content">
+            <div class="section-desc">
+                1학년 1학기부터 3학년 1학기까지 학교생활기록부 전 영역(교과세특, 창체, 독서, 봉사, 행동특성)에서 추출된 <b>총 98건의 전수 활동 발전 궤적</b>입니다.
+            </div>
+            <div class="timeline-scroll" id="timeline-render"></div>
+        </div>
+
+        <!-- 3. 주제 묶기 -->
+        <div id="tab-story" class="tab-content">
+            <div class="section-desc">
+                체육 지향에서 제과제빵·식품과학·푸드비즈니스로 진화한 학생의 다차원적 탐구 흐름을 물리학, 생명공학, 수리통계, 인공지능, 윤리철학 관점에서 엮어낸 <b>10대 심층 서사 아크(Story Arcs)</b>입니다.
+            </div>
+            <div class="story-container" id="story-render"></div>
+        </div>
+
+        <!-- 4. 역량 트리 -->
+        <div id="tab-tree" class="tab-content">
+            <div class="section-desc">
+                키워드 노드표(graph)의 역량 데이터와 100% 동기화된 <b>8대 핵심 역량 체계</b> 및 하위 실천 활동 근거 트리입니다. (좌→우 위계형 구조)
+            </div>
+            <div id="tree-container" class="graph-container"></div>
+        </div>
+
+        <!-- 5. 원문 확인 -->
+        <div id="tab-evidence" class="tab-content">
+            <div class="section-desc">
+                보고서의 모든 노드, 활동, 역량, 스토리의 출처가 되는 학교생활기록부 원문 <b>98건 1:1 대조 검증 데이터</b>입니다. (핵심 진술 하이라이트 적용)
+            </div>
+            <div class="evidence-grid" id="evidence-render"></div>
+        </div>
+
+        <!-- 6. AI 학습 사전 -->
+        <div id="tab-wiki" class="tab-content">
+            <div class="section-desc">
+                학생A의 생기부에서 탐구된 전문 학술 개념(레올로지, CRISPR 유전자 가위, 모평균 신뢰구간, 휴리스틱, 아리스토텔레스 중용 등)에 대한 <b>AI 학술 용어 해설집</b>입니다.
+            </div>
+            <div class="wiki-grid" id="wiki-render"></div>
+        </div>
+
+        <!-- 7. 활동 분류 (매핑) -->
+        <div id="tab-reclass" class="tab-content">
+            <div class="section-desc">
+                좌측 생기부 기재 원문 항목(98건)과 우측 8대 학문 계열 간의 융합 매핑입니다. 항목에 마우스를 올리면 연결 경로가 하이라이트되며, 인쇄 시 계열별 정리 표로 자동 변환됩니다.
+            </div>
+            <div class="mapping-container">
+                <div class="mapping-col" id="map-left"></div>
+                <div class="mapping-canvas-wrap"><svg id="mapping-svg"></svg></div>
+                <div class="mapping-col" id="map-right"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 전수 추출 및 100% 상호 동기화된 학생 데이터 (총 98건 1:1 완전 대응)
+        const studentData = {
+            graph: {
+                nodes: [
+                    { id: 1, label: "학생A\n(제과제빵·식품과학·푸드테크)", group: "student" },
+                    // 관심사 (interest)
+                    { id: 101, label: "제과제빵 레올로지 및 글루텐 물성", group: "interest" },
+                    { id: 102, label: "식품 발효미생물 및 바이오 유전자공학", group: "interest" },
+                    { id: 103, label: "베이킹 수리 모델링 및 발효 통계 분석", group: "interest" },
+                    { id: 104, label: "AI 추천 시스템 및 소비자 행동심리 마케팅", group: "interest" },
+                    { id: 105, label: "잔여식품 나눔 윤리 및 지속가능성", group: "interest" },
+                    { id: 106, label: "스포츠 과학 및 직무 신체 역학", group: "interest" },
+                    { id: 107, label: "디저트 예술 조형 및 문화 인문학", group: "interest" },
+                    { id: 108, label: "현장 위기관리 및 서번트 리더십", group: "interest" },
+
+                    // 역량 (competence) - competenceTree의 level 1과 100% 명칭 동기화
+                    { id: 201, label: "식품물성 및 제과 레올로지(Rheology) 과학 분석력", group: "competence" },
+                    { id: 202, label: "발효미생물 공학 및 유전자 편집 바이오 탐구력", group: "competence" },
+                    { id: 203, label: "수리 모델링 및 통계적 공정 최적화 역량", group: "competence" },
+                    { id: 204, label: "소비자 행동심리 및 AI 맞춤형 마케팅 전략 기획력", group: "competence" },
+                    { id: 205, label: "식품 안전·생명윤리 및 지속가능한 상생 철학", group: "competence" },
+                    { id: 206, label: "신체 메커니즘 이해 기반 스포츠 과학 및 직무 체력", group: "competence" },
+                    { id: 207, label: "인문학적 통찰 및 미적·예술적 조형 감각", group: "competence" },
+                    { id: 208, label: "위기 대응 유연성과 공동체 서번트 리더십", group: "competence" },
+
+                    // 개념 (concept)
+                    { id: 301, label: "훅의 법칙 및 점탄성 모델", group: "concept" },
+                    { id: 302, label: "CRISPR-Cas9 유전자 편집", group: "concept" },
+                    { id: 303, label: "르방(Levain) 젖산균-효모 공생", group: "concept" },
+                    { id: 304, label: "모평균 95% 신뢰구간 추정", group: "concept" },
+                    { id: 305, label: "제한된 합리성 및 휴리스틱", group: "concept" },
+                    { id: 306, label: "아리스토텔레스 중용(Mesotes)", group: "concept" },
+                    { id: 307, label: "ATP 인산결합과 세포호흡", group: "concept" },
+                    { id: 308, label: "허프먼 코딩 및 데이터 이상치 정제", group: "concept" },
+                    { id: 309, label: "속인주의 형법 원칙", group: "concept" },
+                    { id: 310, label: "믹서 마찰열과 전단응력", group: "concept" },
+
+                    // 주요 대표 활동 (activity)
+                    { id: 401, label: "익스텐소그래프 반죽 점탄성 해석", group: "activity" },
+                    { id: 402, label: "CRISPR-Cas9 효모 대사경로 강화 설계", group: "activity" },
+                    { id: 403, label: "빵 반죽 발효시간 95% 신뢰구간 추정", group: "activity" },
+                    { id: 404, label: "제과 AI 추천 및 소비자 휴리스틱 분석", group: "activity" },
+                    { id: 405, label: "잔여식품 처리와 아리스토텔레스 덕 윤리", group: "activity" },
+                    { id: 406, label: "키토제닉 다이어트와 근육 ATP 대사 탐구", group: "activity" },
+                    { id: 407, label: "점토 미니어처 빵·캐릭터 입체 조형", group: "activity" },
+                    { id: 408, label: "요리동아리 회장 위기관리 및 안전총괄", group: "activity" },
+
+                    // 배움 (lesson)
+                    { id: 501, label: "경험적 직관을 넘어선 수리·물리적 정밀화", group: "lesson" },
+                    { id: 502, label: "생명공학 발전 속 식품 안전과 생명윤리", group: "lesson" },
+                    { id: 503, label: "통계적 오차 분석을 통한 균일 품질 제어", group: "lesson" },
+                    { id: 504, label: "기술 마케팅 이면에 존재하는 소비자 주체성", group: "lesson" },
+                    { id: 505, label: "사회적 약자와 환경을 고려하는 비즈니스 중용", group: "lesson" },
+                    { id: 506, label: "고강도 베이킹을 지탱하는 기초 체력과 피지컬", group: "lesson" },
+                    { id: 507, label: "식문화에 따뜻한 감성과 정성을 부여하는 미학", group: "lesson" },
+                    { id: 508, label: "현장의 혼란을 질서로 바꾸는 헌신적 리더십", group: "lesson" }
+                ],
+                edges: [
+                    { from: 1, to: 101, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 102, dashes: false, title: "핵심 관심사" },
+                    { from: 1, to: 103, dashes: false, title: "융합 관심사" },
+                    { from: 1, to: 104, dashes: false, title: "경영·IT 관심사" },
+                    { from: 1, to: 105, dashes: false, title: "윤리 관심사" },
+                    { from: 1, to: 106, dashes: false, title: "체육·보건 관심사" },
+                    { from: 1, to: 107, dashes: false, title: "예술 관심사" },
+                    { from: 1, to: 108, dashes: false, title: "리더십 관심사" },
+
+                    { from: 101, to: 201, dashes: false, title: "핵심 근거" },
+                    { from: 102, to: 202, dashes: false, title: "핵심 근거" },
+                    { from: 103, to: 203, dashes: false, title: "핵심 근거" },
+                    { from: 104, to: 204, dashes: false, title: "핵심 근거" },
+                    { from: 105, to: 205, dashes: false, title: "핵심 근거" },
+                    { from: 106, to: 206, dashes: false, title: "핵심 근거" },
+                    { from: 107, to: 207, dashes: false, title: "핵심 근거" },
+                    { from: 108, to: 208, dashes: false, title: "핵심 근거" },
+
+                    { from: 201, to: 301, dashes: false, title: "이론적 기반" },
+                    { from: 201, to: 310, dashes: true, title: "보조 이론" },
+                    { from: 201, to: 401, dashes: false, title: "실천 활동" },
+                    { from: 401, to: 501, dashes: false, title: "도출된 성찰" },
+
+                    { from: 202, to: 302, dashes: false, title: "이론적 기반" },
+                    { from: 202, to: 303, dashes: false, title: "이론적 기반" },
+                    { from: 202, to: 402, dashes: false, title: "실천 활동" },
+                    { from: 402, to: 502, dashes: false, title: "도출된 성찰" },
+
+                    { from: 203, to: 304, dashes: false, title: "이론적 기반" },
+                    { from: 203, to: 308, dashes: true, title: "보조 기반" },
+                    { from: 203, to: 403, dashes: false, title: "실천 활동" },
+                    { from: 403, to: 503, dashes: false, title: "도출된 성찰" },
+
+                    { from: 204, to: 305, dashes: false, title: "이론적 기반" },
+                    { from: 204, to: 404, dashes: false, title: "실천 활동" },
+                    { from: 404, to: 504, dashes: false, title: "도출된 성찰" },
+
+                    { from: 205, to: 306, dashes: false, title: "이론적 기반" },
+                    { from: 205, to: 309, dashes: true, title: "보조 기반" },
+                    { from: 205, to: 405, dashes: false, title: "실천 활동" },
+                    { from: 405, to: 505, dashes: false, title: "도출된 성찰" },
+
+                    { from: 206, to: 307, dashes: false, title: "이론적 기반" },
+                    { from: 206, to: 406, dashes: false, title: "실천 활동" },
+                    { from: 406, to: 506, dashes: false, title: "도출된 성찰" },
+
+                    { from: 207, to: 407, dashes: false, title: "실천 활동" },
+                    { from: 407, to: 507, dashes: false, title: "도출된 성찰" },
+
+                    { from: 208, to: 408, dashes: false, title: "실천 활동" },
+                    { from: 408, to: 508, dashes: false, title: "도출된 성찰" }
+                ]
+            },
+            timeline: [
+                {
+                    grade: "1학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "PAPS 체력 측정 및 전년도 기록 비교 성취감 분석", type: "자율", semester: "1-1" },
+                                { title: "다문화이해교육 타인 의견 경청 및 상호 존중 소감문 작성", type: "자율", semester: "1-1" },
+                                { title: "국어 교과의 날 백일장 '청춘' 글감 시 창작", type: "자율", semester: "1-1" },
+                                { title: "영화 태극기 휘날리며·연평해전 감상 및 남북 평화통일 해법 발표", type: "동아리", semester: "1-1" },
+                                { title: "'몸 만들기 처방전' 독서 및 키토제닉 다이어트 단기·장기 결손 비교 분석", type: "진로", semester: "1-1" },
+                                { title: "봉사활동 기본 소양 교육 이수", type: "봉사", semester: "1-1" },
+                                { title: "급식 시간 교내 질서 지도 봉사활동 (10시간)", type: "봉사", semester: "1-1" },
+                                { title: "교내 환경 정화 활동 1차 실천", type: "봉사", semester: "1-1" },
+                                { title: "교내 환경 정화 활동 2차 실천", type: "봉사", semester: "1-1" },
+                                { title: "교내 환경 정화 활동 3차 실천 (15시간 누계)", type: "봉사", semester: "1-1" },
+                                { title: "지역 방언 특성 대본 실감 낭독 및 고령화 사회 나아갈 방향 글쓰기", type: "국어", semester: "1-1" },
+                                { title: "삼차방정식 세 근과 식의 값 및 인수정리 활용 근 도출 보고서", type: "수학", semester: "1-1" },
+                                { title: "창의성 요약 및 가족 간 상호 이해와 배려 필요성 추론 영작", type: "영어", semester: "1-1" },
+                                { title: "신석기 시대 빗살무늬 토기 가상 일기 및 신라 삼국통일 긍정적 평가", type: "한국사", semester: "1-1" },
+                                { title: "문화상대주의 태도 정립 및 선진국 인구감소(일본 사례) 분석", type: "통합사회", semester: "1-1" },
+                                { title: "주4일제 도입 행복 정책 및 국가노동시간위원회 구성 촉구 제안", type: "통합사회", semester: "1-1" },
+                                { title: "지구 물 분포 조사 및 전자기 신소재 그래핀 성질·이용사례 조사", type: "통합과학", semester: "1-1" },
+                                { title: "실험실 주의사항 분석 및 과학실 안전 포스터 제작", type: "과탐실", semester: "1-1" },
+                                { title: "저출산 원인 분석 및 독일 비교 주택구매 지원금 정책 제안", type: "기술가정", semester: "1-1" },
+                                { title: "학급 체육부장 리더십 발휘 및 육상 제트런 유연한 턴·배드민턴 서브 피드백", type: "체육", semester: "1-1" },
+                                { title: "디지털 드로잉 기법 동물(닭·거북이) 및 음영 초상화 캐릭터 제작", type: "미술", semester: "1-1" },
+                                { title: "체육부장 체조 통솔 부상 방지 및 체육한마당 단합 주도", type: "행특", semester: "1-1" }
+                            ]
+                        },
+                        {
+                            term: "2학기",
+                            activities: [
+                                { title: "사이버 학교폭력 심각성 분석 및 예방 방안 활동지 제시", type: "자율", semester: "1-2" },
+                                { title: "한국사 영화 동아리 적극적 변화 및 분단사 상징성 집중 탐구", type: "동아리", semester: "1-2" },
+                                { title: "급식 시간 교내 질서 도움 봉사활동 (15시간)", type: "봉사", semester: "1-2" },
+                                { title: "이해관계 갈등 상황 상생 대안 모색 및 협상 목표 달성 모둠 활동", type: "국어", semester: "1-2" },
+                                { title: "명제와 조건의 정의 학습 및 참·거짓 판별 논리적 문제해결 소감문", type: "수학", semester: "1-2" },
+                                { title: "플라스틱 오염 해결책 조건절 영작 및 운동 효과 O/X·서술형 퀴즈 제작", type: "영어", semester: "1-2" },
+                                { title: "북벌론 비판 글쓰기 및 명분 탈피·국익 중심 실리외교 역설", type: "한국사", semester: "1-2" },
+                                { title: "건조 스텝 기후 주민 생활 분석 및 혹독한 환경 적응 말 캐릭터 제작", type: "통합사회", semester: "1-2" },
+                                { title: "공유·이온결합 전기전도성 비교 및 찰흙 변형 운동량-질량·속도 유도 실험", type: "통합과학", semester: "1-2" },
+                                { title: "자유낙하 운동 실험 참여 및 중력 가속도 데이터 측정", type: "과탐실", semester: "1-2" },
+                                { title: "목공 공구 활용 우드 트레이·원목 연필꽂이 제작 및 입체 모델링", type: "기술가정", semester: "1-2" },
+                                { title: "킥복싱 원리 접목 전신 회전 하체 중심 탁구 드라이브 스트로크 완성", type: "체육", semester: "1-2" },
+                                { title: "음악 기호·박자표 기반 리듬 창작 및 우쿨렐레·칼림바·피아노·드럼 연주", type: "음악", semester: "1-2" },
+                                { title: "사교적 성품과 친화력으로 급우 관계 형성 및 성실한 과제 완수 태도", type: "행특", semester: "1-2" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    grade: "2학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "선도 차장 임명 및 교칙 준수 캠페인·교내 순찰 비행 관리", type: "자율", semester: "2-1" },
+                                { title: "반죽 글루텐 형성 조건 가설 검증(과도 혼합 시 탄성·신장성 약화 확인)", type: "자율", semester: "2-1" },
+                                { title: "요리동아리 딸기 케이크 시트 질감·크림 농도 조절 및 제과 실습 주도", type: "동아리", semester: "2-1" },
+                                { title: "'내 피드가 나를 말해준다' 콘텐츠 분석(운동·음식·카페 융합 파티시에 진로 확립)", type: "진로", semester: "2-1" },
+                                { title: "음악·영상 콘텐츠 제작 탐색 및 개인 녹음 시도 창의적 계획 수립", type: "진로", semester: "2-1" },
+                                { title: "'제빵은 과학이다' 독서: 적갈색 설탕 열 반응 과학적 해석 및 케이크 틀 부피 수학 계산", type: "진로", semester: "2-1" },
+                                { title: "급식 질서 도우미 봉사활동 1차 (20시간)", type: "봉사", semester: "2-1" },
+                                { title: "교내 흡연 및 비행 예방 순찰 봉사활동 (20시간)", type: "봉사", semester: "2-1" },
+                                { title: "고려가요 '가시리' 이별의 정한 공감 및 후렴구 정치적 기능 심층 분석", type: "문학", semester: "2-1" },
+                                { title: "'소설가 구보 씨의 일일' 지식인 내면 분석 및 작은 실천 권유 편지글 작성", type: "문학", semester: "2-1" },
+                                { title: "'누가 음료수를 마셨을까' 지수함수 모델링 추론 및 끈기 있는 오답 극복", type: "수학Ⅰ", semester: "2-1" },
+                                { title: "'파티시에 셰프란 무엇인가' 시각 이미지 활용 영어 발표 및 필수 자질 설명", type: "영어Ⅰ", semester: "2-1" },
+                                { title: "사자성어 '무한부성' 좌우명 선정 및 땀과 성취의 가치 영작", type: "영어Ⅰ", semester: "2-1" },
+                                { title: "익스텐소그래프 힘-변형 데이터와 훅의 법칙을 적용한 반죽 탄성계수 산출", type: "물리학Ⅰ", semester: "2-1" },
+                                { title: "점탄성 모델 도입 반죽 저장에너지·복원력·점성 손실률 정량 산출", type: "물리학Ⅰ", semester: "2-1" },
+                                { title: "세포 호흡 ATP 화학 에너지 전환 및 스포츠 보충제 기전 탐색", type: "화학Ⅰ", semester: "2-1" },
+                                { title: "아스키·UTF-8 인코딩 비교 및 허프먼 코딩 압축 알고리즘 구현", type: "정보", semester: "2-1" },
+                                { title: "하루 식단 열량 분석 프로젝트 및 이상치 제거를 통한 데이터 신뢰도 확보", type: "정보", semester: "2-1" },
+                                { title: "일본어 가나 사물 연상 학습 및 오니기리 유래 조사·애니메이션 맛집 홍보물 제작", type: "일본어Ⅰ", semester: "2-1" },
+                                { title: "영화 '동주' 내면적 성찰 분석 및 '별 헤는 밤' 추천 글 작성", type: "문학과매체", semester: "2-1" },
+                                { title: "제과제빵 직업 탐색 카드뉴스 기획 및 인내의 가치 감성적 전달", type: "문학과매체", semester: "2-1" },
+                                { title: "왕복오래달리기 호흡·보폭 리듬 조절 및 플로어컬링 일관된 힘 조절", type: "스포츠생활", semester: "2-1" },
+                                { title: "점토 미니어처 입체 창작(분홍 코끼리, 노란 닭, 캐릭터 빵 조형물)", type: "미술창작", semester: "2-1" },
+                                { title: "예의 바른 태도 및 교내 축제 동아리 제과 부스 총괄 운영(재료·가격·고객 관리)", type: "행특", semester: "2-1" }
+                            ]
+                        },
+                        {
+                            term: "2학기",
+                            activities: [
+                                { title: "글루텐 형성 단계 이해 기반 반죽 안정화 및 호화 과정 심화 탐구 의지", type: "자율", semester: "2-2" },
+                                { title: "마들렌·쿠키 재료 계량 및 굽기 시간 세심 관찰, 실패 원인 분석 개선", type: "동아리", semester: "2-2" },
+                                { title: "기존 운동 체력을 베이킹 실무 체력으로 승화하는 융합적 진로 확신", type: "진로", semester: "2-2" },
+                                { title: "급식 질서 도우미 봉사활동 2차 (20시간, 누계 60시간 달성)", type: "봉사", semester: "2-2" },
+                                { title: "'분홍과 파랑 사이' 독서 및 성별 색상 고정관념·사회적 관습 비판", type: "독서", semester: "2-2" },
+                                { title: "곡선과 x축 사이 넓이의 기하학적 정적분 해석 및 부정적분 관계 증명", type: "수학Ⅱ", semester: "2-2" },
+                                { title: "'나의 달콤한 휴식' 카페 공간 묘사 영작(관계부사, '휘게' 개념 접목)", type: "영어Ⅱ", semester: "2-2" },
+                                { title: "예수의 사랑·책임 윤리 탐구 및 묵자의 겸애사상 기반 이상사회 설계", type: "윤리와사상", semester: "2-2" },
+                                { title: "산화-환원 반응 전자의 이동 및 산화제·환원제 구분 활동", type: "화학Ⅰ", semester: "2-2" },
+                                { title: "코르티코스테로이드 항염·면역억제 작용 기전 및 부작용 양면성 분석", type: "생명과학Ⅰ", semester: "2-2" },
+                                { title: "운동 부상 경험 바탕 혈류 속도 조절 타박상 치료제 창의적 고안", type: "생명과학Ⅰ", semester: "2-2" },
+                                { title: "컴퓨팅 주기억장치-처리장치 데이터 처리 원리 및 메모리 용량 성능 분석", type: "정보", semester: "2-2" },
+                                { title: "'일본어 심리 상자' 독서 및 현대 '오타쿠' 몰입 문화의 긍정적 재해석", type: "일본어Ⅰ", semester: "2-2" },
+                                { title: "제과 브랜드 창립자의 나눔 철학과 양심적 가격 정책 조명 영작", type: "진로영어", semester: "2-2" },
+                                { title: "디저트 트렌드 대응 및 해외 유학 포부를 담은 미래 직업 로드맵 영작", type: "진로영어", semester: "2-2" },
+                                { title: "관절 협응 배구 언더핸드 서브 및 지면 반력 농구 골밑슛 훈련", type: "스포츠생활", semester: "2-2" },
+                                { title: "우쿨렐레 메트로놈 없는 안정적 스트로크 및 강약 조절 연주 완성도", type: "음악감상", semester: "2-2" },
+                                { title: "제과제빵 위생과 절차 준수 및 피드백 수용을 통한 장인정신 발휘", type: "행특", semester: "2-2" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    grade: "3학년",
+                    semesters: [
+                        {
+                            term: "1학기",
+                            activities: [
+                                { title: "개인정보보호 및 스마트폰 과의존 예방 자율적 미디어 시간 통제", type: "자율", semester: "3-1" },
+                                { title: "성폭력 예방교육 경청 및 디지털 성범죄·데이트폭력 예방 성평등 문화 조성", type: "자율", semester: "3-1" },
+                                { title: "요리동아리 회장 역임: 사전 조리법 브리핑 및 돌발상황 대처", type: "동아리", semester: "3-1" },
+                                { title: "동아리 안전·위생 선도 및 체계적 뒷정리 분담 환경 구축", type: "동아리", semester: "3-1" },
+                                { title: "'퍼펙트 크림&디저트' 독서: 유지방 함량별 크림 조직성 분석 및 버터크림 역사 탐구", type: "진로", semester: "3-1" },
+                                { title: "AI 추천 시스템과 휴리스틱·제한된 합리성 이론 기반 제과 마케팅 설문조사 분석", type: "진로", semester: "3-1" },
+                                { title: "제과제빵 특화 개인 맞춤형 AI 추천 및 알고리즘 윤리·편향성 비판 고찰", type: "진로", semester: "3-1" },
+                                { title: "제과제빵과 모의면접 구조화(성실과 배움, 새벽 작업과 트렌드 학습)", type: "화법과작문", semester: "3-1" },
+                                { title: "현대 디저트 소비 트렌드(가치소비, 건강, 경험) 설명문 작성", type: "화법과작문", semester: "3-1" },
+                                { title: "빵 반죽 평균 발효 시간 분석: 표본 40개 표본평균·표본표준편차 산출", type: "확률과통계", semester: "3-1" },
+                                { title: "모평균 95% 신뢰구간 공식 적용을 통한 실제 반죽 발효시간 구간 추정", type: "확률과통계", semester: "3-1" },
+                                { title: "편의점 디저트 시장의 급성장 요인 및 소셜 미디어 영향 영자 기사 보도", type: "영어독해", semester: "3-1" },
+                                { title: "베이커리 잔여 식품 처리 도덕적 딜레마 분석 및 아리스토텔레스 중용 실천안", type: "생활과윤리", semester: "3-1" },
+                                { title: "대마초 합법화 국가 비교 및 한국 형법 속인주의 원칙 인포그래픽 제작", type: "보건", semester: "3-1" },
+                                { title: "소화기계 건강 식습관 및 식중독 예방, 심폐소생술·AED 응급 처치 실습", type: "보건", semester: "3-1" },
+                                { title: "신문 활용 생활 속 한자어 해독 및 한자성어 단문 짓기 응용", type: "한문Ⅰ", semester: "3-1" },
+                                { title: "작품 문체 분석 및 비경쟁 독서토론을 통한 사회적 문제 비판적 고찰", type: "현대문학", semester: "3-1" },
+                                { title: "CRISPR-Cas9 유전자 가위 원리 분석 및 효모 향미 합성 대사경로 강화 설계", type: "생명과학Ⅱ", semester: "3-1" },
+                                { title: "효모 알코올 발효 및 르방 젖산균 글루텐 보존 원리 발표, 생명윤리 성찰", type: "생명과학Ⅱ", semester: "3-1" },
+                                { title: "천식 치료 패러다임 분석 및 AI 활용 선제적 관리 모델 제안(개인정보 윤리)", type: "생활과과학", semester: "3-1" },
+                                { title: "피겨 각운동량 보존 법칙 및 베이킹 믹서 마찰열에 따른 글루텐 형성 분석", type: "생활과과학", semester: "3-1" },
+                                { title: "밸런스보드 평형성 요령 공유 및 제자리멀리뛰기 피드백 협력 성장", type: "운동과건강", semester: "3-1" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            story: [
+                {
+                    title: "1. 체육에서 제과제빵으로의 창의적 진로 전이: 신체 조절력에서 정밀한 제과 피지컬로의 승화",
+                    type: "체육/진로/과학",
+                    interpretation: "AI 해석: 1학년 체육부장으로서 PAPS와 제트런에서 체력을 단련하고 '몸 만들기 처방전'을 읽던 학생이, 2학년 진로 탐색에서 자신의 콘텐츠 피드를 분석하여 운동 체력을 고강도 베이킹 작업의 핵심 역량으로 재정의하였습니다. 3학년까지 이어진 이 기초 체력은 새벽 작업과 장시간 정밀 베이킹을 버텨내는 단단한 피지컬 기반이 되었습니다.",
+                    steps: [
+                        { time: "1-1", title: "PAPS 체력 분석 및 몸 만들기 처방전 탐구", detail: "자율/진로" },
+                        { time: "1-2", title: "킥복싱 회전 원리를 접목한 탁구 스트로크 완성", detail: "체육" },
+                        { time: "2-1", title: "'내 피드가 나를 말해준다' 운동-베이킹 융합 진로 설정", detail: "진로활동" },
+                        { time: "2-2", title: "진로영어 에세이: 고강도 베이킹을 위한 체력 관리 역설", detail: "진로영어" },
+                        { time: "3-1", title: "화법과 작문 모의면접: 새벽 베이커리 작업을 지탱하는 성실과 체력 피력", detail: "화법과작문" }
+                    ]
+                },
+                {
+                    title: "2. 반죽의 물리학과 레올로지: 훅의 법칙과 점탄성 모델로 규명한 베이킹 과학",
+                    type: "물리/과학/제과",
+                    interpretation: "AI 해석: 2학년 자율활동에서 반죽의 글루텐 형성 가설을 세우고 과도 혼합 시 탄성 저하를 관찰한 뒤, 물리학Ⅰ에서 익스텐소그래프 데이터를 바탕으로 훅의 법칙(Hooke's Law)과 점탄성 모델을 도입해 탄성계수와 점성 손실률을 정량적으로 산출하였습니다. 3학년 생활과 과학에서는 믹서의 마찰열이 글루텐 형성에 미치는 영향까지 규명하며 경험적 제과를 엄밀한 유체역학·물성학으로 승화시켰습니다.",
+                    steps: [
+                        { time: "2-1", title: "글루텐 형성 조건 및 과도 혼합 시 탄성·신장성 약화 규명", detail: "자율활동" },
+                        { time: "2-1", title: "익스텐소그래프 힘-변형 데이터 및 훅의 법칙 탄성계수 산출", detail: "물리학Ⅰ" },
+                        { time: "2-1", title: "점탄성 모델 도입을 통한 저장에너지 및 점성 손실률 계산", detail: "물리학Ⅰ" },
+                        { time: "2-2", title: "반죽 안정화 및 호화(Gelatinization) 과정 심화 탐구", detail: "자율활동" },
+                        { time: "3-1", title: "반죽기 믹서 마찰열과 전단응력에 따른 글루텐 형성 분석", detail: "생활과과학" }
+                    ]
+                },
+                {
+                    title: "3. 발효 생명공학과 효모 미생물 설계: 알코올 발효에서 CRISPR 유전자 가위까지",
+                    type: "생명과학/바이오/식품",
+                    interpretation: "AI 해석: 제과제빵의 핵심인 효모의 생물학적 메커니즘을 파고들어, 효모의 알코올 발효와 천연발효종(르방) 내 젖산균의 상호작용이 글루텐 구조에 미치는 영향을 규명하였습니다. 나아가 최신 생명공학 기술인 CRISPR-Cas9 유전자 편집 기법을 적용하여 이산화탄소 발생 효율과 향미 에스터 합성 경로를 강화하는 효모 균주 설계 시나리오를 완성하는 뛰어난 바이오 역량을 보였습니다.",
+                    steps: [
+                        { time: "2-1", title: "화학Ⅰ 세포 호흡과 ATP 에너지 전환 기전 탐구", detail: "화학Ⅰ" },
+                        { time: "3-1", title: "효모 알코올 발효 및 르방 젖산균 글루텐 보존 원리 규명", detail: "생명과학Ⅱ" },
+                        { time: "3-1", title: "CRISPR-Cas9 이용 효모 향미 합성 대사경로 강화 시나리오 설계", detail: "생명과학Ⅱ" },
+                        { time: "3-1", title: "유전자 편집 미생물 식품에 대한 생명윤리 및 안전성 검증 고찰", detail: "생명과학Ⅱ" }
+                    ]
+                },
+                {
+                    title: "4. 데이터와 통계로 완성하는 표준화 공정: 케이크 기하학에서 모평균 95% 신뢰구간까지",
+                    type: "수학/통계/정보",
+                    interpretation: "AI 해석: 1학년 삼차방정식과 2학년 지수함수 모델링('누가 음료수를 마셨을까')을 거쳐 케이크 틀 크기 변화에 따른 부피와 재료 비율을 수학적으로 산출했습니다. 3학년 확률과 통계에서는 제과 현장의 빵 반죽 발효 데이터를 수집하여 표본평균과 표준편차를 계산하고, 모평균 95% 신뢰구간 공식을 적용해 최적 발효 시간 범위를 통계적으로 입증함으로써 제과의 산업적 품질 표준화를 달성했습니다.",
+                    steps: [
+                        { time: "1-1", title: "삼차방정식 인수정리 및 근의 공식 탐구", detail: "수학" },
+                        { time: "2-1", title: "지수함수 모델링을 통한 음료수 온도 변화 추론", detail: "수학Ⅰ" },
+                        { time: "2-1", title: "원형 케이크 틀 호수에 따른 지름·부피 수학적 계산", detail: "진로활동" },
+                        { time: "3-1", title: "빵 반죽 표본 40개 발효시간 표본통계량 산출", detail: "확률과통계" },
+                        { time: "3-1", title: "모평균 95% 신뢰구간 추정을 통한 발효 공정 최적화", detail: "확률과통계" }
+                    ]
+                },
+                {
+                    title: "5. 행동경제학과 AI 알고리즘의 융합: 휴리스틱과 추천 시스템 기반의 미래 푸드테크 마케팅",
+                    type: "정보/경영/심리",
+                    interpretation: "AI 해석: 2학년 정보 수업에서 데이터 인코딩과 식단 이상치 정제를 학습한 경험을 바탕으로, 3학년 진로활동에서 AI와 제과제빵 마케팅을 접목했습니다. 노벨경제학상의 '제한된 합리성'과 '휴리스틱' 이론을 적용하여 소비자의 디저트 선택 편향을 교내 설문조사로 분석하고, 알고리즘 윤리를 고려한 맞춤형 AI 추천 시스템 모델을 제안했습니다.",
+                    steps: [
+                        { time: "2-1", title: "식단 열량 데이터 수집 및 이상치 제거 전처리", detail: "정보" },
+                        { time: "3-1", title: "AI 추천 시스템이 소비자 행동에 미치는 영향력 분석", detail: "진로활동" },
+                        { time: "3-1", title: "교내 학생 대상 2차례 설문조사 및 비교 통계 분석", detail: "진로활동" },
+                        { time: "3-1", title: "휴리스틱 이론 기반 제과제빵 개인 맞춤형 AI 추천 전략 제안", detail: "진로활동" },
+                        { time: "3-1", title: "알고리즘 윤리와 소비자 편향 문제에 대한 비판적 성찰", detail: "진로활동" }
+                    ]
+                },
+                {
+                    title: "6. 자본의 논리를 넘는 식품 윤리와 공공성: 묵자의 겸애에서 베이커리 푸드뱅크 중용 실천까지",
+                    type: "윤리/철학/사회",
+                    interpretation: "AI 해석: 2학년 윤리와 사상에서 예수의 책임 윤리와 묵자의 차별 없는 사랑(겸애)을 바탕으로 이상사회를 설계하고, 진로영어에서 양심적 가격과 나눔을 실천한 제과 창립자를 조명했습니다. 3학년 생활과 윤리에서는 베이커리의 잔여 식품 폐기와 기부 사이의 딜레마를 아리스토텔레스의 '중용(Mesotes)' 개념으로 해결하며, 보관 기준과 안전 프로토콜을 수립하는 성숙한 기업가 정신을 보여주었습니다.",
+                    steps: [
+                        { time: "2-1", title: "묵자의 겸애사상과 예수의 사랑을 접목한 이상사회 설계", detail: "윤리와사상" },
+                        { time: "2-2", title: "제과 브랜드 창립자의 나눔 철학과 양심적 가격 정책 조명", detail: "진로영어" },
+                        { time: "3-1", title: "베이커리 잔여 식품 처리와 식품 안전의 도덕적 딜레마 직면", detail: "생활과윤리" },
+                        { time: "3-1", title: "아리스토텔레스 덕 윤리의 중용을 실천한 안전 기부 시스템 제안", detail: "생활과윤리" }
+                    ]
+                },
+                {
+                    title: "7. 생체 대사와 약리 기전 탐구: 키토제닉과 ATP 에너지 대사에서 타박상 신약 설계까지",
+                    type: "의약/생명/보건",
+                    interpretation: "AI 해석: 1학년 때 '몸 만들기 처방전'을 읽고 키토제닉 다이어트의 단기 체중 감량과 장기 영양 결손을 과학적으로 대조하였으며, 2학년 화학Ⅰ에서 근육 운동 시 ATP 합성 과정을 학습했습니다. 이어 생명과학Ⅰ에서 코르티코스테로이드의 염증 유전자 억제 기전을 파악한 후 자신의 운동 부상 경험을 바탕으로 혈류 속도와 항염 작용을 결합한 타박상 치료제를 설계하는 융합적 탐구력을 드러냈습니다.",
+                    steps: [
+                        { time: "1-1", title: "키토제닉 다이어트 이론과 실제 및 장기적 부작용 비교 분석", detail: "진로활동" },
+                        { time: "2-1", title: "세포 호흡과 근육 운동에 필요한 ATP 화학적 공급 기전 학습", detail: "화학Ⅰ" },
+                        { time: "2-2", title: "코르티코스테로이드의 항염 기전 및 약물 부작용 상관관계 분석", detail: "생명과학Ⅰ" },
+                        { time: "2-2", title: "운동 부상 치료를 위한 혈류 조절 및 항염 타박상 약품 고안", detail: "생명과학Ⅰ" },
+                        { time: "3-1", title: "소화기계 구조와 균형 잡힌 식생활 및 식중독 예방 실천", detail: "보건" }
+                    ]
+                },
+                {
+                    title: "8. 공감과 섬세함의 조형 예술: 디지털 캐릭터 드로잉에서 동화적 클레이 디저트 아트까지",
+                    type: "미술/디자인/문화",
+                    interpretation: "AI 해석: 1학년 미술에서 디지털 드로잉으로 동물 캐릭터와 음영 초상화를 표현하고, 2학년 미술창작에서 점토를 활용해 분홍 코끼리와 빵 모양의 미니어처를 동화적으로 조형하였습니다. 디저트가 단순한 먹거리를 넘어 소비자의 감정을 위로하고 즐거움을 전달하는 시각 예술임을 인식하고, 3학년 디저트 트렌드 분석과 카드뉴스 디자인으로 미적 감각을 확장했습니다.",
+                    steps: [
+                        { time: "1-1", title: "디지털 드로잉을 활용한 동물 및 음영 인물 초상화 표현", detail: "미술" },
+                        { time: "1-2", title: "건조 스텝 기후 적응 말 캐릭터 디자인", detail: "통합사회" },
+                        { time: "2-1", title: "점토 미니어처 입체 창작: 캐릭터와 디저트의 경계를 넘나드는 조형", detail: "미술창작" },
+                        { time: "2-1", title: "제과제빵 직업 카드뉴스 감성적 시각 디자인", detail: "문학과매체" },
+                        { time: "3-1", title: "가치소비와 감각적 경험을 중시하는 현대 디저트 소비 트렌드 분석", detail: "화법과작문" }
+                    ]
+                },
+                {
+                    title: "9. 위기 대응과 안전의 수호자: 선도차장 교내 순찰에서 동아리 돌발 대처 및 심폐소생술까지",
+                    type: "안전/리더십/보건",
+                    interpretation: "AI 해석: 2학년 선도 차장 및 순찰 봉사활동(60시간)을 통해 학교 질서와 비행 관리에 힘쓴 공공 의식은, 3학년 요리동아리 회장으로서 실습 도구 부족이나 계량 오류 등의 돌발 위기에 당황하지 않고 대안을 신속히 제시하는 유연한 대처 능력으로 발현되었습니다. 보건 수업에서는 심폐소생술과 자동심장충격기(AED) 실습을 완벽히 마쳐 조리 현장의 안전 관리자 역량을 구비했습니다.",
+                    steps: [
+                        { time: "2-1", title: "선도 차장 캠페인 및 교내 흡연·비행 예방 순찰 (20시간)", detail: "자율/봉사" },
+                        { time: "2-2", title: "급식 질서 도우미 및 교내 질서 유지 봉사 누계 60시간 달성", detail: "봉사활동" },
+                        { time: "3-1", title: "요리동아리 회장: 실습 돌발 상황(계량 오류·도구 부족) 즉각 대처", detail: "동아리활동" },
+                        { time: "3-1", title: "동아리 안전사고 예방 및 위생 관리 분담 주도", detail: "동아리활동" },
+                        { time: "3-1", title: "응급처치 심폐소생술(CPR) 및 AED 정확한 시연 실습", detail: "보건" }
+                    ]
+                },
+                {
+                    title: "10. 언어와 문화를 잇는 글로벌 디저트 소통력: 화용론적 협상에서 영문 디저트 저널리즘까지",
+                    type: "어문/글로벌/사회",
+                    interpretation: "AI 해석: 1학년 국어의 갈등 상황 협상 모둠 활동과 영어 퀴즈 제작에서 뛰어난 소통력을 보인 후, 2학년 진로영어와 일본어 수업을 통해 해외 제과 문화와 어휘를 체득했습니다. 3학년에는 편의점 디저트 시장의 트렌드를 다룬 수준 높은 영자 신문 기사를 직접 작성하고, 화법과 작문에서 제과제빵과 심층 면접 답변을 논리적으로 구조화하는 글로벌 커뮤니케이션 역량을 완성했습니다.",
+                    steps: [
+                        { time: "1-2", title: "근원적 이해 갈등 상황의 상생 협상 및 합의 도출", detail: "국어" },
+                        { time: "2-1", title: "'파티시에 셰프란 무엇인가' 영어 프레젠테이션 발표", detail: "영어Ⅰ" },
+                        { time: "2-2", title: "덴마크 '휘게(Hygge)' 철학을 접목한 카페 사진 영문 수필", detail: "영어Ⅱ" },
+                        { time: "3-1", title: "편의점 디저트 시장 확장과 소셜 미디어 트렌드 영자 기사 보도", detail: "영어독해와작문" },
+                        { time: "3-1", title: "제과제빵과 신입생 모의면접 질의응답 및 준언어 전략 수립", detail: "화법과작문" }
+                    ]
+                }
+            ],
+            competenceTree: {
+                nodes: [
+                    { id: "root", label: "학생A 핵심 역량 체계", level: 0 },
+                    // Level 1: 8대 핵심 역량 (graph의 group: "competence" 노드와 100% 동일)
+                    { id: "c1", label: "식품물성 및 제과 레올로지(Rheology) 과학 분석력", level: 1 },
+                    { id: "c2", label: "발효미생물 공학 및 유전자 편집 바이오 탐구력", level: 1 },
+                    { id: "c3", label: "수리 모델링 및 통계적 공정 최적화 역량", level: 1 },
+                    { id: "c4", label: "소비자 행동심리 및 AI 맞춤형 마케팅 전략 기획력", level: 1 },
+                    { id: "c5", label: "식품 안전·생명윤리 및 지속가능한 상생 철학", level: 1 },
+                    { id: "c6", label: "신체 메커니즘 이해 기반 스포츠 과학 및 직무 체력", level: 1 },
+                    { id: "c7", label: "인문학적 통찰 및 미적·예술적 조형 감각", level: 1 },
+                    { id: "c8", label: "위기 대응 유연성과 공동체 서번트 리더십", level: 1 },
+
+                    // Level 2: 구체적 실천 활동 근거
+                    { id: "act1_1", label: "익스텐소그래프 반죽 훅의 법칙 및 점탄성 모델 해석", level: 2 },
+                    { id: "act1_2", label: "글루텐 형성 단계 가설 검증 및 믹서 마찰열 분석", level: 2 },
+                    { id: "act2_1", label: "CRISPR-Cas9 이용 효모 향미 합성 대사경로 강화 설계", level: 2 },
+                    { id: "act2_2", label: "효모 알코올 발효 및 르방 젖산균 글루텐 보존 메커니즘", level: 2 },
+                    { id: "act3_1", label: "빵 반죽 발효시간 표본 40개 95% 신뢰구간 정량 추정", level: 2 },
+                    { id: "act3_2", label: "케이크 틀 호수별 부피 계산 및 지수함수 모델링", level: 2 },
+                    { id: "act4_1", label: "제한된 합리성과 휴리스틱 이론 기반 제과 AI 추천 전략", level: 2 },
+                    { id: "act4_2", label: "전교생 대상 디저트 소비 설문조사 및 편향성 통찰", level: 2 },
+                    { id: "act5_1", label: "베이커리 잔여 식품 처리 도덕적 딜레마와 중용 실천", level: 2 },
+                    { id: "act5_2", label: "묵자 겸애사상 이상사회 설계 및 제과 창립자 나눔 분석", level: 2 },
+                    { id: "act6_1", label: "PAPS·제트런·킥복싱 하체 회전 스트로크 체력 단련", level: 2 },
+                    { id: "act6_2", label: "키토제닉 다이어트 분석 및 부상 치료 타박상 약품 고안", level: 2 },
+                    { id: "act7_1", label: "점토 미니어처 분홍 코끼리와 빵 캐릭터 입체 조형", level: 2 },
+                    { id: "act7_2", label: "고려가요 가시리 이별의 정한 공감 및 동주 영화 비평", level: 2 },
+                    { id: "act8_1", label: "선도 차장 교내 순찰 활동 및 누계 60시간 질서 봉사", level: 2 },
+                    { id: "act8_2", label: "요리동아리 회장 돌발상황 즉각 대처 및 CPR 응급 실습", level: 2 }
+                ],
+                edges: [
+                    { from: "root", to: "c1" }, { from: "root", to: "c2" }, { from: "root", to: "c3" }, { from: "root", to: "c4" },
+                    { from: "root", to: "c5" }, { from: "root", to: "c6" }, { from: "root", to: "c7" }, { from: "root", to: "c8" },
+                    
+                    { from: "c1", to: "act1_1" }, { from: "c1", to: "act1_2" },
+                    { from: "c2", to: "act2_1" }, { from: "c2", to: "act2_2" },
+                    { from: "c3", to: "act3_1" }, { from: "c3", to: "act3_2" },
+                    { from: "c4", to: "act4_1" }, { from: "c4", to: "act4_2" },
+                    { from: "c5", to: "act5_1" }, { from: "c5", to: "act5_2" },
+                    { from: "c6", to: "act6_1" }, { from: "c6", to: "act6_2" },
+                    { from: "c7", to: "act7_1" }, { from: "c7", to: "act7_2" },
+                    { from: "c8", to: "act8_1" }, { from: "c8", to: "act8_2" }
+                ]
+            },
+            evidence: [
+                // 1학년 1학기 (22건)
+                {
+                    title: "PAPS 체력 측정 및 전년도 기록 비교 성취감 분석",
+                    type: "자율활동", semester: "1-1",
+                    text: "PAPS 활동을 수행하는 과정에서 자신의 진로인 체육학과에 대한 역량을 파악하고 체력의 중요성을 밝힘. <span class='highlight'>전년도의 기록과 비교하며 향상된 자신의 운동역량에 대한 성취감을 활동지에 표현함</span>."
+                },
+                {
+                    title: "다문화이해교육 타인 의견 경청 및 상호 존중 소감문 작성",
+                    type: "자율활동", semester: "1-1",
+                    text: "다문화이해교육 시간에 자신의 의견과 다른 학생의 의견을 함께 나누어 보는 활동을 수행함. <span class='highlight'>개인마다 다양한 특성을 가지고 공동체 생활을 위해서는 서로 존중하는 자세가 필요함을 표현함</span>."
+                },
+                {
+                    title: "국어 교과의 날 백일장 '청춘' 글감 시 창작",
+                    type: "자율활동", semester: "1-1",
+                    text: "국어 교과의 날 백일장 활동에서 <span class='highlight'>청춘이라는 글감을 활용하여 시를 작성함</span>."
+                },
+                {
+                    title: "영화 태극기 휘날리며·연평해전 감상 및 남북 평화통일 해법 발표",
+                    type: "동아리활동", semester: "1-1",
+                    text: "한국전쟁의 참상과 비극을 조명한 한반도 영화 태극기 휘날리며와 연평해전을 감상하고 한국의 분단사의 흐름과 세계 속의 한반도가 가진 상징성에 대해 집중력을 가지고 탐구함. <span class='highlight'>남북한이 서로 화해하고 소통하면서 평화통일을 위한 해법을 모색해 나가야 할 것이라고 강조함</span>."
+                },
+                {
+                    title: "'몸 만들기 처방전' 독서 및 키토제닉 다이어트 단기·장기 결손 비교 분석",
+                    type: "진로활동", semester: "1-1",
+                    text: "진로 독서 활동으로 '몸 만들기 처방전'을 읽음. <span class='highlight'>키토제닉 다이어트에 대한 정보를 추가 탐색하면서 무조건 적게 먹어야 살이 빠지는가를 탐구 질문으로 정하여 이론과 실제, 단기적 결과와 장기적 결손으로 나누어 어떤 결과가 초래되는가를 비교, 분석함</span>."
+                },
+                {
+                    title: "봉사활동 기본 소양 교육 이수",
+                    type: "봉사활동", semester: "1-1",
+                    text: "2024.03.08. 봉사활동 소양 교육을 성실히 이수함."
+                },
+                {
+                    title: "급식 시간 교내 질서 지도 봉사활동 (10시간)",
+                    type: "봉사활동", semester: "1-1",
+                    text: "2024.03.25.~2024.07.16. 교내 급식 질서 지도 봉사활동을 10시간 성실히 수행함."
+                },
+                {
+                    title: "교내 환경 정화 활동 1차 실천",
+                    type: "봉사활동", semester: "1-1",
+                    text: "2024.04.03. 교내 환경 정화 봉사활동을 실천함."
+                },
+                {
+                    title: "교내 환경 정화 활동 2차 실천",
+                    type: "봉사활동", semester: "1-1",
+                    text: "2024.05.09. 교내 환경 정화 봉사활동을 실천함."
+                },
+                {
+                    title: "교내 환경 정화 활동 3차 실천 (15시간 누계)",
+                    type: "봉사활동", semester: "1-1",
+                    text: "2024.05.24. 교내 환경 정화 활동에 솔선수범하여 참여함."
+                },
+                {
+                    title: "지역 방언 특성 대본 실감 낭독 및 고령화 사회 나아갈 방향 글쓰기",
+                    type: "국어 세특", semester: "1-1",
+                    text: "화법 수업에서 <span class='highlight'>지역 방언의 특성이 드러나도록 대본을 실감나게 읽어 수업 분위기를 밝게 만드는 역할</span>을 함. 고령화 사회에 관심을 가지고 대안을 조사하여 '고령화 사회를 맞이한 우리가 나아가야 할 방향'을 주제로 글을 작성함."
+                },
+                {
+                    title: "삼차방정식 세 근과 식의 값 및 인수정리 활용 근 도출 보고서",
+                    type: "수학 세특", semester: "1-1",
+                    text: "수학 탐구 보고서 활동 중 삼차방정식의 세 근과 식의 값을 주제로 선정함. <span class='highlight'>삼차방정식에서 인수정리를 활용한 인수분해 방법을 복습하고 근을 찾아내는 방법을 발견하여 활동지에 작성</span>함. 끈기 있는 태도를 보임."
+                },
+                {
+                    title: "창의성 요약 및 가족 간 상호 이해와 배려 필요성 추론 영작",
+                    type: "영어 세특", semester: "1-1",
+                    text: "창의성과 관련된 글을 읽고 요약본을 작성함. 상호 이해와 배려 부족으로 인해 발생한 사건을 묘사하는 글을 읽고 세부 내용을 정리함. <span class='highlight'>가족 구성원끼리 배려가 필요함을 강조하는 글을 읽고 필자의 감정을 추론함</span>."
+                },
+                {
+                    title: "신석기 시대 빗살무늬 토기 가상 일기 및 신라 삼국통일 긍정적 평가",
+                    type: "한국사 세특", semester: "1-1",
+                    text: "선사 시대 가상 일기 작성하기에서 신석기 빗살무늬 토기 제작 일기를 작성함. <span class='highlight'>신라의 삼국 통일에 대해 전쟁의 종식에 초점을 맞춰 긍정적인 입장을 밝힘</span>."
+                },
+                {
+                    title: "문화상대주의 태도 정립 및 선진국 인구감소(일본 사례) 분석",
+                    type: "통합사회 세특", semester: "1-1",
+                    text: "문화적 차이를 존중하기 위해 상대주의적 태도를 겸비해야 한다는 결론을 도출함. <span class='highlight'>선진국의 인구 감소 문제에 대한 해결 방안을 일본의 사례를 통해 탐구함</span>."
+                },
+                {
+                    title: "주4일제 도입 행복 정책 및 국가노동시간위원회 구성 촉구 제안",
+                    type: "통합사회 세특", semester: "1-1",
+                    text: "주5일제와 생산성의 효율 변화가 미미함을 근거로 <span class='highlight'>주4일제 법제화와 국가노동시간위원회 구성을 촉구하는 행복 정책을 제안함</span>."
+                },
+                {
+                    title: "지구 물 분포 조사 및 전자기 신소재 그래핀 성질·이용사례 조사",
+                    type: "통합과학 세특", semester: "1-1",
+                    text: "지구에 존재하는 물의 분포를 조사하고, 물질의 전자기적 성질을 변화시킨 <span class='highlight'>신소재 그래핀에 대해 성질, 이용사례, 장단점을 조사함</span>."
+                },
+                {
+                    title: "실험실 주의사항 분석 및 과학실 안전 포스터 제작",
+                    type: "과학탐구실험", semester: "1-1",
+                    text: "과학실 안전 포스터 만들기라는 주제로 <span class='highlight'>실험실 주의 사항을 알아보는 모둠활동에 적극 참여함</span>."
+                },
+                {
+                    title: "저출산 원인 분석 및 독일 비교 주택구매 지원금 정책 제안",
+                    type: "기술·가정 세특", semester: "1-1",
+                    text: "저출산의 원인과 결과에 대하여 국방력 약화 및 노인 부양비용 상승 등을 서술함. 독일의 사례와 비교해 보고 <span class='highlight'>출산율 반등을 위해 주택구매 지원금 정책을 제안함</span>."
+                },
+                {
+                    title: "학급 체육부장 리더십 발휘 및 육상 제트런 유연한 턴·배드민턴 서브 피드백",
+                    type: "체육 세특", semester: "1-1",
+                    text: "학급 체육부장으로서 좋은 반 분위기를 주도함. <span class='highlight'>육상 제트런에서 근력 및 순발력을 바탕으로 유연한 턴 동작을 보이며 원하는 기록을 달성함. 배드민턴 서브에서 친구들에게 자세 피드백을 제공함</span>."
+                },
+                {
+                    title: "디지털 드로잉 기법 동물(닭·거북이) 및 음영 초상화 캐릭터 제작",
+                    type: "미술 세특", semester: "1-1",
+                    text: "디지털 드로잉 기법을 활용하여 귀여운 닭과 파란색 거북이 캐릭터를 묘사함. <span class='highlight'>인물 표현에서 얼굴은 단순한 선, 몸은 어두운 음영으로 처리하여 강한 인상을 주는 창의적 예술 작품을 완성함</span>."
+                },
+                {
+                    title: "체육부장 체조 통솔 부상 방지 및 체육한마당 단합 주도",
+                    type: "행동특성", semester: "1-1",
+                    text: "체육 시간에 체육부장을 자발적으로 맡아 <span class='highlight'>학급 친구들의 부상을 방지하기 위해 체조를 통솔하여 실시함. 체육한마당에서도 학급 단합을 적극 주도함</span>."
+                },
+
+                // 1학년 2학기 (14건)
+                {
+                    title: "사이버 학교폭력 심각성 분석 및 예방 방안 활동지 제시",
+                    type: "자율활동", semester: "1-2",
+                    text: "학교폭력예방교육을 듣고 <span class='highlight'>사이버 학교폭력에 대한 문제점을 파악하여 이를 예방하는 방안을 활동지에 제시함</span>."
+                },
+                {
+                    title: "한국사 영화 동아리 적극적 변화 및 분단사 상징성 집중 탐구",
+                    type: "동아리활동", semester: "1-2",
+                    text: "학기 초 소극적인 태도에서 벗어나 점차 <span class='highlight'>긍정적인 변화를 보이며 집중력을 가지고 동아리 활동에 적극적으로 참여함</span>."
+                },
+                {
+                    title: "급식 시간 교내 질서 도움 봉사활동 (15시간)",
+                    type: "봉사활동", semester: "1-2",
+                    text: "2024.08.26.~2025.01.09. 급식 시간 질서 도움 활동을 15시간 동안 헌신적으로 수행함."
+                },
+                {
+                    title: "이해관계 갈등 상황 상생 대안 모색 및 협상 목표 달성 모둠 활동",
+                    type: "국어 세특", semester: "1-2",
+                    text: "근원적 이해가 달라 갈등하는 상황에 대해 협상하는 모둠 활동에서 <span class='highlight'>양측에게 모두 이익이 되는 대안을 탐색하고 의견을 펼치며 협상 목표 달성에 기여함</span>."
+                },
+                {
+                    title: "명제와 조건의 정의 학습 및 참·거짓 판별 논리적 문제해결 소감문",
+                    type: "수학 세특", semester: "1-2",
+                    text: "명제와 조건의 다양한 성질을 학습한 후, <span class='highlight'>주어진 정보를 분석하고 논리적으로 문제의 참과 거짓을 파악하여 수학적 결론을 도출함. 정보처리 및 추론 역량이 향상됨</span>."
+                },
+                {
+                    title: "플라스틱 오염 해결책 조건절 영작 및 운동 효과 O/X·서술형 퀴즈 제작",
+                    type: "영어 세특", semester: "1-2",
+                    text: "플라스틱 오염 해결책을 조건절을 활용해 영작함. <span class='highlight'>근력운동과 유산소 운동의 역할과 효과를 주제로 O/X 및 서술형 퀴즈를 제작하고 간결한 해설 문장을 작성함</span>."
+                },
+                {
+                    title: "북벌론 비판 글쓰기 및 명분 탈피·국익 중심 실리외교 역설",
+                    type: "한국사 세특", semester: "1-2",
+                    text: "북벌론을 비판하는 글 작성에서 <span class='highlight'>국가의 이익과 백성들의 안위를 위해 북벌은 위험하다고 지적하며 명의 그늘에서 벗어날 필요가 있다고 역설함</span>."
+                },
+                {
+                    title: "건조 스텝 기후 주민 생활 분석 및 혹독한 환경 적응 말 캐릭터 제작",
+                    type: "통합사회 세특", semester: "1-2",
+                    text: "스텝 기후의 일교차와 환경을 분석하고, <span class='highlight'>혹독한 스텝 환경에서 잘 적응하기 위해 필요한 특징들을 부여한 말을 닮은 캐릭터를 창의적으로 제작함</span>."
+                },
+                {
+                    title: "공유·이온결합 전기전도성 비교 및 찰흙 변형 운동량-질량·속도 유도 실험",
+                    type: "통합과학 세특", semester: "1-2",
+                    text: "공유·이온결합 물질의 상태별 전기 전도성을 비교함. <span class='highlight'>찰흙의 높이와 질량에 따른 변형 정도를 이용해 운동량이 질량과 속도의 곱임을 실험적으로 도출함</span>."
+                },
+                {
+                    title: "자유낙하 운동 실험 참여 및 중력 가속도 데이터 측정",
+                    type: "과학탐구실험", semester: "1-2",
+                    text: "자유 낙하하는 물체의 운동 실험에 성실히 참여하여 물리적 규칙성을 확인함."
+                },
+                {
+                    title: "목공 공구 활용 우드 트레이·원목 연필꽂이 제작 및 입체 모델링",
+                    type: "기술·가정 세특", semester: "1-2",
+                    text: "직각클램프, 스피드 스퀘어, 전동드릴을 활용하여 우드 트레이와 연필꽂이를 제작함. <span class='highlight'>자신의 아이디어를 입체적으로 모델링하는 능력이 우수함</span>."
+                },
+                {
+                    title: "킥복싱 원리 접목 전신 회전 하체 중심 탁구 드라이브 스트로크 완성",
+                    type: "체육 세특", semester: "1-2",
+                    text: "탁구 드라이브 수업에서 상체만 쓰던 문제점을 <span class='highlight'>좋아하는 킥복싱에 빗대어 하체의 회전을 통해 강력한 상체 힘을 이용하는 스트로크 동작으로 완성함</span>."
+                },
+                {
+                    title: "음악 기호·박자표 기반 리듬 창작 및 우쿨렐레·칼림바·피아노·드럼 연주",
+                    type: "음악 세특", semester: "1-2",
+                    text: "기초 이론과 기호를 적용하여 리듬 창작함. <span class='highlight'>우쿨렐레, 칼림바, 피아노, 드럼 등 여러 악기의 연주법을 익히고 끝까지 끈기 있게 연습함</span>."
+                },
+                {
+                    title: "사교적 성품과 친화력으로 급우 관계 형성 및 성실한 과제 완수 태도",
+                    type: "행동특성", semester: "1-2",
+                    text: "사교적이고 유쾌한 성격으로 친구들과 원활한 관계를 유지함. <span class='highlight'>자신에게 주어진 역할이나 활동을 책임감 있게 수행하며 언제나 최선을 다하는 끈기를 보임</span>."
+                },
+
+                // 2학년 1학기 (24건)
+                {
+                    title: "선도 차장 임명 및 교칙 준수 캠페인·교내 순찰 비행 관리",
+                    type: "자율활동", semester: "2-1",
+                    text: "선도 차장으로서 교칙 준수, 예절 캠페인에 앞장서며 <span class='highlight'>교내 순찰 활동을 통해 교내 치안과 비행 활동 관리에 힘씀</span>."
+                },
+                {
+                    title: "반죽 글루텐 형성 조건 가설 검증(과도 혼합 시 탄성·신장성 약화 확인)",
+                    type: "자율활동", semester: "2-1",
+                    text: "제과제빵 과정에서 글루텐 형성 탐구를 수행함. <span class='highlight'>글루텐은 적정 단계 이상 섞을 경우 탄성과 신장성이 약해지고 가스 보유력이 떨어진다는 사실을 확인하고 원리를 배움</span>."
+                },
+                {
+                    title: "요리동아리 딸기 케이크 시트 질감·크림 농도 조절 및 제과 실습 주도",
+                    type: "동아리활동", semester: "2-1",
+                    text: "요리동아리(가월)에서 딸기 케이크 만들기 활동 시 <span class='highlight'>시트의 질감과 크림의 농도, 장식의 균형을 고려하며 완성도를 높이고 유의점을 부원들에게 설명함</span>."
+                },
+                {
+                    title: "'내 피드가 나를 말해준다' 콘텐츠 분석(운동·음식·카페 융합 파티시에 진로 확립)",
+                    type: "진로활동", semester: "2-1",
+                    text: "자주 접하는 콘텐츠를 분석하여 <span class='highlight'>운동, 음식, 카페라는 공통 주제를 도출하고 바리스타와 파티시에를 진로 관심 분야로 설정함</span>."
+                },
+                {
+                    title: "음악·영상 콘텐츠 제작 탐색 및 개인 녹음 시도 창의적 계획 수립",
+                    type: "진로활동", semester: "2-1",
+                    text: "음악과 영상 콘텐츠 제작 등 새로운 분야에 열의를 보이며 <span class='highlight'>혼자 녹음을 시도해 보고 싶다는 창의적 표현 의지를 피력함</span>."
+                },
+                {
+                    title: "'제빵은 과학이다' 독서: 적갈색 설탕 열 반응 과학적 해석 및 케이크 틀 부피 수학 계산",
+                    type: "진로활동", semester: "2-1",
+                    text: "'제빵은 과학이다'를 읽고 적갈색 설탕의 열 반응을 과학적으로 설명함. <span class='highlight'>원형 케이크 틀 호수에 따라 반지름과 부피를 기준으로 재료 분량을 계산하는 방법을 스스로 정리함</span>."
+                },
+                {
+                    title: "급식 질서 도우미 봉사활동 1차 (20시간)",
+                    type: "봉사활동", semester: "2-1",
+                    text: "2025.03.17.~2025.08.06. 급식 질서 도우미 봉사활동을 20시간 성실히 이행함."
+                },
+                {
+                    title: "교내 흡연 및 비행 예방 순찰 봉사활동 (20시간)",
+                    type: "봉사활동", semester: "2-1",
+                    text: "2025.08.07.~2025.12.30. 교내 흡연 및 비행 예방을 위한 순찰 봉사활동에 20시간 참여함."
+                },
+                {
+                    title: "고려가요 '가시리' 이별의 정한 공감 및 후렴구 정치적 기능 심층 분석",
+                    type: "문학 세특", semester: "2-1",
+                    text: "가시리에 나타난 이별의 정한에 깊이 공감함. <span class='highlight'>궁중 속악으로 채택되며 태평성대를 노래한 정치적 후렴구가 첨가되었음을 정확히 설명함</span>."
+                },
+                {
+                    title: "'소설가 구보 씨의 일일' 지식인 내면 분석 및 작은 실천 권유 편지글 작성",
+                    type: "문학 세특", semester: "2-1",
+                    text: "'소설가 구보 씨의 일일'을 읽고 <span class='highlight'>무기력하게 하루를 보내는 인물에게 작은 실천부터 시작해 삶을 바꿔나갈 것을 조언하는 편지글을 작성함</span>."
+                },
+                {
+                    title: "'누가 음료수를 마셨을까' 지수함수 모델링 추론 및 끈기 있는 오답 극복",
+                    type: "수학Ⅰ 세특", semester: "2-1",
+                    text: "'누가 음료수를 마셨을까' 탐구에서 <span class='highlight'>지수함수를 활용하여 온도 조건에 맞추어 결과값을 구하고 단서와 연계해 추측해 내며 끈기 있게 문제를 해결함</span>."
+                },
+                {
+                    title: "'파티시에 셰프란 무엇인가' 시각 이미지 활용 영어 발표 및 필수 자질 설명",
+                    type: "영어Ⅰ 세특", semester: "2-1",
+                    text: "'파티시에 셰프란 무엇인가?' 주제로 영어 발표를 수행함. <span class='highlight'>디저트 개발과 필수 자질을 시각적 이미지와 함께 제시하여 청중의 이해를 도움</span>."
+                },
+                {
+                    title: "사자성어 '무한부성' 좌우명 선정 및 땀과 성취의 가치 영작",
+                    type: "영어Ⅰ 세특", semester: "2-1",
+                    text: "좌우명 작문에서 <span class='highlight'>'땀 없이는 아무것도 이룰 수 없다(무한부성)'를 영작하여 노력의 가치를 피력함</span>."
+                },
+                {
+                    title: "익스텐소그래프 힘-변형 데이터와 훅의 법칙을 적용한 반죽 탄성계수 산출",
+                    type: "물리학Ⅰ 세특", semester: "2-1",
+                    text: "'반죽의 탄성력과 변형' 탐구에서 <span class='highlight'>익스텐소그래프 힘-변형 데이터에 훅의 법칙을 적용하여 초기 신장 구간 기울기에서 탄성계수를 정량 산출함</span>."
+                },
+                {
+                    title: "점탄성 모델 도입 반죽 저장에너지·복원력·점성 손실률 정량 산출",
+                    type: "물리학Ⅰ 세특", semester: "2-1",
+                    text: "<span class='highlight'>점탄성 모델까지 도입하여 외력에 대한 탄성·점성 응답을 해석하고 곡선 면적 차이 분석으로 에너지 손실률을 산출함</span>."
+                },
+                {
+                    title: "세포 호흡 ATP 화학 에너지 전환 및 스포츠 보충제 기전 탐색",
+                    type: "화학Ⅰ 세특", semester: "2-1",
+                    text: "ATP가 분해될 때 에너지가 방출되는 원리를 이해하고, <span class='highlight'>운동 능력 향상을 위한 보충제 개발 화학 기전과 에너지 전환의 중요성을 인식함</span>."
+                },
+                {
+                    title: "아스키·UTF-8 인코딩 비교 및 허프먼 코딩 압축 알고리즘 구현",
+                    type: "정보 세특", semester: "2-1",
+                    text: "아스키와 UTF-8 인코딩 방식을 비교하고, <span class='highlight'>허프먼 코딩을 활용한 압축 알고리즘을 직접 프로그래밍으로 구현함</span>."
+                },
+                {
+                    title: "하루 식단 열량 분석 프로젝트 및 이상치 제거를 통한 데이터 신뢰도 확보",
+                    type: "정보 세특", semester: "2-1",
+                    text: "하루 식단 열량 분석 프로젝트에서 <span class='highlight'>자료 수집부터 시각화까지 스스로 설계하고 이상치를 제거한 후 재분석하여 신뢰도를 높임</span>."
+                },
+                {
+                    title: "일본어 가나 사물 연상 학습 및 오니기리 유래 조사·애니메이션 맛집 홍보물 제작",
+                    type: "일본어Ⅰ 세특", semester: "2-1",
+                    text: "오니기리의 유래를 조사하고, <span class='highlight'>콘셉트에 맞는 애니메이션 캐릭터를 검색하여 맛집 홍보물을 창의적으로 제작함</span>."
+                },
+                {
+                    title: "영화 '동주' 내면적 성찰 분석 및 '별 헤는 밤' 추천 글 작성",
+                    type: "문학과매체", semester: "2-1",
+                    text: "영화 '동주'를 통해 예술가의 신념에 감명을 받음. <span class='highlight'>'별 헤는 밤'을 통해 힘든 시기를 겪는 또래 친구들에게 문학을 매개로 감정을 전하는 추천 글을 작성함</span>."
+                },
+                {
+                    title: "제과제빵 직업 탐색 카드뉴스 기획 및 인내의 가치 감성적 전달",
+                    type: "문학과매체", semester: "2-1",
+                    text: "카드뉴스 제작에서 제과제빵을 주제로 선정함. <span class='highlight'>'내 다정함의 크기는 오늘 내가 버틴 시간만큼 커질 것이다' 글귀를 활용해 정성과 인내를 감성적으로 표현함</span>."
+                },
+                {
+                    title: "왕복오래달리기 호흡·보폭 리듬 조절 및 플로어컬링 일관된 힘 조절",
+                    type: "스포츠생활", semester: "2-1",
+                    text: "왕복오래달리기에서 호흡과 보폭을 조절함. <span class='highlight'>플로어컬링에서 일관된 힘 조절 경험을 제과제빵 반죽의 정밀한 힘 조절 직무 특성과 연결 지음</span>."
+                },
+                {
+                    title: "점토 미니어처 입체 창작(분홍 코끼리, 노란 닭, 캐릭터 빵 조형물)",
+                    type: "미술창작", semester: "2-1",
+                    text: "점토를 활용해 분홍 코끼리, 노란 닭, 빵 모양의 조형물을 제작함. <span class='highlight'>음식과 캐릭터의 경계를 넘나드는 발상으로 높은 미적 완성도를 보임</span>."
+                },
+                {
+                    title: "예의 바른 태도 및 교내 축제 동아리 제과 부스 총괄 운영(재료·가격·고객 관리)",
+                    type: "행동특성", semester: "2-1",
+                    text: "동아리 부스를 운영하며 음식을 준비함. <span class='highlight'>재료 관리부터 가격 책정, 고객 응대까지 전반적인 과정에서 전문성을 보이며 호평을 받음</span>."
+                },
+
+                // 2학년 2학기 (18건)
+                {
+                    title: "글루텐 형성 단계 이해 기반 반죽 안정화 및 호화 과정 심화 탐구 의지",
+                    type: "자율활동", semester: "2-2",
+                    text: "반죽 속 글루텐 형성 단계 이해를 바탕으로 <span class='highlight'>반죽의 호화(Gelatinization) 과정을 탐구하여 제빵 과학 원리를 심화하겠다는 의지를 보임</span>."
+                },
+                {
+                    title: "마들렌·쿠키 재료 계량 및 굽기 시간 세심 관찰, 실패 원인 분석 개선",
+                    type: "동아리활동", semester: "2-2",
+                    text: "마들렌과 쿠키 만들기에서 <span class='highlight'>재료 계량과 반죽 상태를 관찰하고, 실패 원인을 분석하여 개선 방안을 제시하는 문제해결 태도를 보임</span>."
+                },
+                {
+                    title: "기존 운동 체력을 베이킹 실무 체력으로 승화하는 융합적 진로 확신",
+                    type: "진로활동", semester: "2-2",
+                    text: "진로가 요리 분야로 전환된 후에도 <span class='highlight'>자신이 지닌 운동 체력을 바탕으로 직업적 역량을 갖추어 나갈 수 있다는 확신을 다짐</span>."
+                },
+                {
+                    title: "급식 질서 도우미 봉사활동 2차 (20시간, 누계 60시간 달성)",
+                    type: "봉사활동", semester: "2-2",
+                    text: "2025.08.07.~2025.12.30. 급식 질서 도우미로 20시간 추가 봉사하여 교내 질서 유지에 기여함."
+                },
+                {
+                    title: "'분홍과 파랑 사이' 독서 및 성별 색상 고정관념·사회적 관습 비판",
+                    type: "독서 세특", semester: "2-2",
+                    text: "'분홍과 파랑 사이'를 읽고 <span class='highlight'>색상에 대한 사회적 인식 형성 과정을 파악하며 색상으로 성을 구분하는 관습을 비판적으로 고찰함</span>."
+                },
+                {
+                    title: "곡선과 x축 사이 넓이의 기하학적 정적분 해석 및 부정적분 관계 증명",
+                    type: "수학Ⅱ 세특", semester: "2-2",
+                    text: "x축과 함수 사이의 넓이를 새 함수로 정의하여 <span class='highlight'>새롭게 정의한 함수가 원래 함수의 부정적분이 된다는 점을 밝히며 기하학적 의미를 증명함</span>."
+                },
+                {
+                    title: "'나의 달콤한 휴식' 카페 공간 묘사 영작(관계부사, '휘게' 개념 접목)",
+                    type: "영어Ⅱ 세특", semester: "2-2",
+                    text: "사진 수필 쓰기에서 관계부사 where를 사용해 영작함. <span class='highlight'>덴마크 삶의 여유를 뜻하는 '휘게'를 인용하여 일상 소소한 순간의 편안함을 묘사함</span>."
+                },
+                {
+                    title: "예수의 사랑·책임 윤리 탐구 및 묵자의 겸애사상 기반 이상사회 설계",
+                    type: "윤리와사상", semester: "2-2",
+                    text: "예수의 사랑과 실천을 탐구함. <span class='highlight'>묵자의 겸애사상을 적용하여 차별 없는 사랑과 나눔이 실현되는 이상사회를 설득력 있게 설계함</span>."
+                },
+                {
+                    title: "산화-환원 반응 전자의 이동 및 산화제·환원제 구분 활동",
+                    type: "화학Ⅰ 세특", semester: "2-2",
+                    text: "화학 반응식에서 전자의 이동에 따라 산화되는 물질과 환원되는 물질을 명확히 구분함."
+                },
+                {
+                    title: "코르티코스테로이드 항염·면역억제 작용 기전 및 부작용 양면성 분석",
+                    type: "생명과학Ⅰ", semester: "2-2",
+                    text: "코르티코스테로이드의 염증 유전자 발현 억제 기전을 설명하고, <span class='highlight'>효과가 강력해질수록 전신 부작용도 커진다는 의약학적 원리를 과학적으로 분석함</span>."
+                },
+                {
+                    title: "운동 부상 경험 바탕 혈류 속도 조절 타박상 치료제 창의적 고안",
+                    type: "생명과학Ⅰ", semester: "2-2",
+                    text: "운동으로 다쳤던 경험을 바탕으로 <span class='highlight'>혈류 속도를 변화시켜 혈장 잔여물 흡수를 촉진하고 염증을 완화하는 타박상 치료제를 고안함</span>."
+                },
+                {
+                    title: "컴퓨팅 주기억장치-처리장치 데이터 처리 원리 및 메모리 용량 성능 분석",
+                    type: "정보 세특", semester: "2-2",
+                    text: "주기억장치가 처리 장치와 협력해 데이터를 임시 저장하는 원리와 메모리 용량이 시스템 성능에 미치는 영향을 분석함."
+                },
+                {
+                    title: "'일본어 심리 상자' 독서 및 현대 '오타쿠' 몰입 문화의 긍정적 재해석",
+                    type: "일본어Ⅰ 세특", semester: "2-2",
+                    text: "'일본어 심리 상자'를 읽고 <span class='highlight'>오타쿠 문화가 무언가에 깊이 몰두하여 삶의 버팀목이 될 수 있다는 긍정적 시각으로 재해석함</span>."
+                },
+                {
+                    title: "제과 브랜드 창립자의 나눔 철학과 양심적 가격 정책 조명 영작",
+                    type: "진로영어", semester: "2-2",
+                    text: "존경 인물 에세이에서 <span class='highlight'>어려운 이웃에게 나눔을 실천하고 맛있는 빵을 양심적 가격에 제공한 제과 창립자의 철학을 서술함</span>."
+                },
+                {
+                    title: "디저트 트렌드 대응 및 해외 유학 포부를 담은 미래 직업 로드맵 영작",
+                    type: "진로영어", semester: "2-2",
+                    text: "빠르게 변하는 디저트 트렌드 대응, 레시피 습득, <span class='highlight'>자격증 취득 및 해외 유학 포부를 구체적인 영어 로드맵으로 작성함</span>."
+                },
+                {
+                    title: "관절 협응 배구 언더핸드 서브 및 지면 반력 농구 골밑슛 훈련",
+                    type: "스포츠생활", semester: "2-2",
+                    text: "올바른 관절 활용으로 배구 서브를 익히고, <span class='highlight'>농구 골밑슛에서 지면 반력의 원리를 이해하여 동작의 안정성을 높임</span>."
+                },
+                {
+                    title: "우쿨렐레 메트로놈 없는 안정적 스트로크 및 강약 조절 연주 완성도",
+                    type: "음악감상비평", semester: "2-2",
+                    text: "메트로놈 없이도 일정한 템포를 유지하며 <span class='highlight'>다운 및 업 스트로크 강약 조절로 곡의 구조를 효과적으로 살려냄</span>."
+                },
+                {
+                    title: "제과제빵 위생과 절차 준수 및 피드백 수용을 통한 장인정신 발휘",
+                    type: "행동특성", semester: "2-2",
+                    text: "조리와 제빵 과정에서 위생과 절차를 철저히 지키며 <span class='highlight'>반복 연습을 통해 완성도를 높이고 피드백을 적극 수용하여 발전함</span>."
+                },
+
+                // 3학년 1학기 (22건)
+                {
+                    title: "개인정보보호 및 스마트폰 과의존 예방 자율적 미디어 시간 통제",
+                    type: "자율활동", semester: "3-1",
+                    text: "개인정보보호 교육에서 정보 보안의 중요성을 인지하고, <span class='highlight'>스마트폰 기기 사용 시간을 스스로 통제하는 자율성을 발휘함</span>."
+                },
+                {
+                    title: "성폭력 예방교육 경청 및 디지털 성범죄·데이트폭력 예방 성평등 문화 조성",
+                    type: "자율활동", semester: "3-1",
+                    text: "타인의 개인적 경계를 존중하는 태도를 다지고 <span class='highlight'>디지털 성범죄와 데이트 폭력에 경각심을 가지며 안전한 문화를 조성함</span>."
+                },
+                {
+                    title: "요리동아리 회장 역임: 사전 조리법 브리핑 및 돌발상황 대처",
+                    type: "동아리활동", semester: "3-1",
+                    text: "회장으로서 실습 중 도구 부족이나 계량 오류 등의 돌발 상황에서 <span class='highlight'>대안 재료를 제시하거나 조리 순서를 신속히 조정하는 유연한 대처를 보임</span>."
+                },
+                {
+                    title: "동아리 안전·위생 선도 및 체계적 뒷정리 분담 환경 구축",
+                    type: "동아리활동", semester: "3-1",
+                    text: "활동 후 안전사고 예방과 위생 관리를 위해 <span class='highlight'>가장 먼저 주변 정리를 시작하고 뒷정리 역할을 분담하여 모범적인 환경을 조성함</span>."
+                },
+                {
+                    title: "'퍼펙트 크림&디저트' 독서: 유지방 함량별 크림 조직성 분석 및 버터크림 역사 탐구",
+                    type: "진로활동", semester: "3-1",
+                    text: "'퍼펙트 크림&디저트'를 읽고 <span class='highlight'>휘핑크림의 유지방 함량에 따른 조직성과 질감 변화 원리를 탐구하여 크림 제조 문제를 극복함</span>."
+                },
+                {
+                    title: "AI 추천 시스템과 휴리스틱·제한된 합리성 이론 기반 제과 마케팅 설문조사 분석",
+                    type: "진로활동", semester: "3-1",
+                    text: "제한된 합리성과 휴리스틱 이론을 토대로 <span class='highlight'>AI 추천 시스템이 소비자 행동에 미치는 영향을 분석하고 전교생 설문조사를 2회 실시함</span>."
+                },
+                {
+                    title: "제과제빵 특화 개인 맞춤형 AI 추천 및 알고리즘 윤리·편향성 비판 고찰",
+                    type: "진로활동", semester: "3-1",
+                    text: "제과 산업 특화 AI 마케팅 전략을 제안하며 <span class='highlight'>알고리즘 윤리와 소비자 편향 문제까지 유기적으로 통찰하는 균형 잡힌 시각을 입증함</span>."
+                },
+                {
+                    title: "제과제빵과 모의면접 구조화(성실과 배움, 새벽 작업과 트렌드 학습)",
+                    type: "화법과작문", semester: "3-1",
+                    text: "제과제빵과 모의면접에서 <span class='highlight'>새벽부터 작업이 시작되는 베이커리의 특성을 들어 성실과 지속적 학습의 중요성을 논리적으로 제시함</span>."
+                },
+                {
+                    title: "현대 디저트 소비 트렌드(가치소비, 건강, 경험) 설명문 작성",
+                    type: "화법과작문", semester: "3-1",
+                    text: "세계 시장 조사 기업 자료를 인용하여 <span class='highlight'>현대 디저트 소비가 단순한 간식이 아닌 건강, 새로운 경험, 취향 반영으로 진화했음을 설명함</span>."
+                },
+                {
+                    title: "빵 반죽 평균 발효 시간 분석: 표본 40개 표본평균·표본표준편차 산출",
+                    type: "확률과통계", semester: "3-1",
+                    text: "전문 서적의 수치를 바탕으로 <span class='highlight'>표본 크기가 40인 표본집단을 구성하고 표본평균과 표본표준편차를 직접 계산함</span>."
+                },
+                {
+                    title: "모평균 95% 신뢰구간 공식 적용을 통한 실제 반죽 발효시간 구간 추정",
+                    type: "확률과통계", semester: "3-1",
+                    text: "<span class='highlight'>신뢰구간 산출식에 수치를 대입하여 전체 빵 반죽의 실제 평균 발효 시간 범위를 통계적으로 추정해 냄</span>."
+                },
+                {
+                    title: "편의점 디저트 시장의 급성장 요인 및 소셜 미디어 영향 영자 기사 보도",
+                    type: "영어독해", semester: "3-1",
+                    text: "편의점 디저트 시장의 급성장 요인과 <span class='highlight'>소셜 미디어 트렌드의 영향을 객관적 출처를 바탕으로 영자 신문 기사로 작성함</span>."
+                },
+                {
+                    title: "베이커리 잔여 식품 처리 도덕적 딜레마 분석 및 아리스토텔레스 중용 실천안",
+                    type: "생활과윤리", semester: "3-1",
+                    text: "잔여 식품 처리 문제에서 <span class='highlight'>아리스토텔레스의 중용 관점을 적용해 보관 상태 관리와 기부 시간 규정 등 구체적 안전 대책을 수립함</span>."
+                },
+                {
+                    title: "대마초 합법화 국가 비교 및 한국 형법 속인주의 원칙 인포그래픽 제작",
+                    type: "보건", semester: "3-1",
+                    text: "대마초 합법화 국가 사례와 <span class='highlight'>한국 형법의 속인주의 원칙을 연계하여 해외여행 시 마약류 주의 인포그래픽을 제작함</span>."
+                },
+                {
+                    title: "소화기계 건강 식습관 및 식중독 예방, 심폐소생술·AED 응급 처치 실습",
+                    type: "보건", semester: "3-1",
+                    text: "균형 잡힌 식생활을 살펴보고, <span class='highlight'>심폐소생술 실습에서 가슴압박과 자동심장충격기 절차를 정확히 수행하여 응급 대처 능력을 입증함</span>."
+                },
+                {
+                    title: "신문 활용 생활 속 한자어 해독 및 한자성어 단문 짓기 응용",
+                    type: "한문Ⅰ", semester: "3-1",
+                    text: "신문을 활용해 생활 한자를 읽고 한자성어에 대한 높은 이해를 바탕으로 단문 짓기를 탁월하게 수행함."
+                },
+                {
+                    title: "작품 문체 분석 및 비경쟁 독서토론을 통한 사회적 문제 비판적 고찰",
+                    type: "현대문학", semester: "3-1",
+                    text: "문체와 미적 특질을 분석하고 <span class='highlight'>비경쟁 독서 토론에서 작품 속 사회 문제를 현대의 관점에서 비판적으로 재해석함</span>."
+                },
+                {
+                    title: "CRISPR-Cas9 유전자 가위 원리 분석 및 효모 향미 합성 대사경로 강화 설계",
+                    type: "생명과학Ⅱ", semester: "3-1",
+                    text: "CRISPR-Cas9 원리를 학습하고 <span class='highlight'>효모의 대사 경로 유전자를 조작하여 이산화탄소 생성과 에스터류 향미 물질 합성을 강화하는 연구 시나리오를 설계함</span>."
+                },
+                {
+                    title: "효모 알코올 발효 및 르방 젖산균 글루텐 보존 원리 발표, 생명윤리 성찰",
+                    type: "생명과학Ⅱ", semester: "3-1",
+                    text: "효모 발효와 르방 유산균의 젖산 생성 원리를 분석하고 <span class='highlight'>유전자 편집 식품에 대한 생명 윤리적 책임 의식을 강조함</span>."
+                },
+                {
+                    title: "천식 치료 패러다임 분석 및 AI 활용 선제적 관리 모델 제안(개인정보 윤리)",
+                    type: "생활과과학", semester: "3-1",
+                    text: "천식의 치료 패러다임 변화를 정리하고, <span class='highlight'>인공지능 기반 선제적 관리 방식을 제안하며 개인정보 유출 윤리 문제도 함께 짚어냄</span>."
+                },
+                {
+                    title: "피겨 각운동량 보존 법칙 및 베이킹 믹서 마찰열에 따른 글루텐 형성 분석",
+                    type: "생활과과학", semester: "3-1",
+                    text: "베이킹 믹서 사용 시 <span class='highlight'>마찰열로 인한 반죽 온도 상승과 글루텐 형성 원리를 마찰력 과학 개념과 논리적으로 연결함</span>."
+                },
+                {
+                    title: "밸런스보드 평형성 요령 공유 및 제자리멀리뛰기 피드백 협력 성장",
+                    type: "운동과건강", semester: "3-1",
+                    text: "밸런스보드와 제자리멀리뛰기에서 <span class='highlight'>친구들과 피드백을 나누고 균형 유지 요령을 공유하며 함께 성장하는 공동체 가치를 실천함</span>."
+                }
+            ],
+            wiki: [
+                {
+                    term: "점탄성 모델 및 훅의 법칙 (Viscoelasticity & Hooke's Law)",
+                    desc: "빵 반죽처럼 탄성(고체적 복원력)과 점성(액체적 유동성)을 동시에 지닌 물질의 역학적 거동 모델. 훅의 법칙($F=k\\Delta x$)을 통해 초기 탄성계수를 산출하고, 이력곡선 면적으로 가공 시 소실되는 점성 손실률을 정량화함."
+                },
+                {
+                    term: "CRISPR-Cas9 및 효모 대사공학 (Yeast Metabolic Engineering)",
+                    desc: "가이드 RNA를 통해 특정 DNA 부위를 절단하는 유전자 가위 기술. 제빵 효모(S. cerevisiae)의 대사 경로를 편집하여 발효 시 이산화탄소 팽창력을 높이고 풍미 에스터 화합물 합성을 증진하는 최첨단 식품생명공학 기법."
+                },
+                {
+                    term: "르방(Levain)과 젖산균-효모 공생 (Sourdough Symbiosis)",
+                    desc: "천연발효종에서 효모와 젖산균이 상호 공생하는 구조. 젖산균이 젖산과 초산을 분비해 pH를 낮춤으로써 글루텐 분해 효소를 제어하고 반죽의 보존성과 풍미, 소화율을 극대화하는 발효 과학 원리."
+                },
+                {
+                    term: "모평균 95% 신뢰구간 추정 (Confidence Interval for Population Mean)",
+                    desc: "표본평균 $\\bar{X}$과 표본표준편차 $S$를 기반으로 실제 모평균 $\\mu$가 존재할 구간을 산출하는 통계 기법 ($\\bar{X} \\pm 1.96 \\frac{S}{\\sqrt{n}}$). 베이킹 공정에서 반죽의 최적 발효 시간을 통계적으로 표준화하는 데 적용됨."
+                },
+                {
+                    term: "제한된 합리성과 휴리스틱 (Bounded Rationality & Heuristics)",
+                    desc: "인간은 정보 처리의 한계로 인해 완전한 최적화 대신 직관적 어림셈(휴리스틱)으로 결정을 내린다는 행동경제학 이론. AI 추천 시스템이 소비자의 디저트 선택 편향에 미치는 영향을 규명하는 핵심 기저."
+                },
+                {
+                    term: "아리스토텔레스 덕 윤리와 중용 (Mesotes)",
+                    desc: "극단적인 과도와 부족을 피해 상황에 가장 적절한 실천을 추구하는 윤리 개념. 베이커리의 잔여 식품을 무조건 폐기하거나 무분별하게 기부하는 대신, 철저한 안전 검증 시스템을 갖추어 기부하는 상생적 중용 실천에 적용."
+                },
+                {
+                    term: "키토제닉 다이어트와 케토시스 (Ketogenic Diet & Ketosis)",
+                    desc: "탄수화물 섭취를 극도로 제한하고 지방을 주 에너지원으로 삼아 간에서 케톤체를 생성하게 하는 식이요법. 단기적 체중 감량에는 효과적이나 장기적으로 영양 불균형 및 신장 부담을 초래할 수 있음을 분석함."
+                },
+                {
+                    term: "ATP 인산 결합과 세포 호흡 (ATP High-Energy Phosphate Bond)",
+                    desc: "세포 내 유기물이 산화 분해되면서 방출되는 에너지를 아데노신 삼인산(ATP)의 고에너지 인산 결합 형태로 저장하는 과정. 근육 운동과 신체 피지컬을 유지하는 근원적인 생화학 대사 기전."
+                },
+                {
+                    term: "허프먼 코딩 및 데이터 전처리 (Huffman Coding & Preprocessing)",
+                    desc: "문자의 출현 빈도에 따라 가변 길이 부호를 부여하는 무손실 압축 기법. 식단 열량 데이터 분석에서 이상치(Outlier)를 통계적으로 정제하여 모델의 왜곡을 방지하고 신뢰도를 제고하는 알고리즘 기술."
+                },
+                {
+                    term: "속인주의 형법 원칙 (Principle of Nationality in Criminal Law)",
+                    desc: "자국민이 자국 영역 밖에서 범죄를 저지른 경우에도 자국 형법을 적용한다는 법리. 대마초 등 마약류가 합법화된 국가에서 섭취하더라도 국내 입국 시 처벌 대상이 됨을 알리는 공공 보건 법률 원칙."
+                },
+                {
+                    term: "휘게(Hygge)와 식문화 인문학 (Hygge & Food Culture)",
+                    desc: "소박하고 아늑한 일상 속에서 타인과의 따뜻한 교감을 통해 얻는 덴마크식 삶의 정취. 베이커리와 카페 공간이 단순한 상업 시설을 넘어 정서적 안정과 소통을 제공하는 힐링 플랫폼임을 보여주는 인문학적 개념."
+                },
+                {
+                    term: "묵자의 겸애설 (Mohist Universal Love)",
+                    desc: "자기 자신과 타인, 자기 국가와 타국을 구별하지 않고 차별 없이 동등하게 사랑해야 한다는 고대 동양 철학. 이윤 중심의 기업 경영을 넘어 소외계층에게 균등한 나눔과 복지를 실현하는 상생 경영관의 뿌리."
+                }
+            ],
+            classification: [
+                // 1학년 1학기 (22건)
+                { original: "1학년 1학기 자율활동", title: "PAPS 체력 측정 및 전년도 기록 비교 성취감 분석", semester: "1-1", category: "예체능계열" },
+                { original: "1학년 1학기 자율활동", title: "다문화이해교육 타인 의견 경청 및 상호 존중 소감문 작성", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 자율활동", title: "국어 교과의 날 백일장 '청춘' 글감 시 창작", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 동아리활동", title: "영화 태극기 휘날리며·연평해전 감상 및 남북 평화통일 해법 발표", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 진로활동", title: "'몸 만들기 처방전' 독서 및 키토제닉 다이어트 단기·장기 결손 비교 분석", semester: "1-1", category: "자연계열" },
+                { original: "1학년 1학기 봉사활동", title: "봉사활동 기본 소양 교육 이수", semester: "1-1", category: "기타" },
+                { original: "1학년 1학기 봉사활동", title: "급식 시간 교내 질서 지도 봉사활동 (10시간)", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 봉사활동", title: "교내 환경 정화 활동 1차 실천", semester: "1-1", category: "기타" },
+                { original: "1학년 1학기 봉사활동", title: "교내 환경 정화 활동 2차 실천", semester: "1-1", category: "기타" },
+                { original: "1학년 1학기 봉사활동", title: "교내 환경 정화 활동 3차 실천 (15시간 누계)", semester: "1-1", category: "기타" },
+                { original: "1학년 1학기 세특(국어)", title: "지역 방언 특성 대본 실감 낭독 및 고령화 사회 나아갈 방향 글쓰기", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 세특(수학)", title: "삼차방정식 세 근과 식의 값 및 인수정리 활용 근 도출 보고서", semester: "1-1", category: "자연계열" },
+                { original: "1학년 1학기 세특(영어)", title: "창의성 요약 및 가족 간 상호 이해와 배려 필요성 추론 영작", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 세특(한국사)", title: "신석기 시대 빗살무늬 토기 가상 일기 및 신라 삼국통일 긍정적 평가", semester: "1-1", category: "인문계열" },
+                { original: "1학년 1학기 세특(통합사회)", title: "문화상대주의 태도 정립 및 선진국 인구감소(일본 사례) 분석", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 세특(통합사회)", title: "주4일제 도입 행복 정책 및 국가노동시간위원회 구성 촉구 제안", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 세특(통합과학)", title: "지구 물 분포 조사 및 전자기 신소재 그래핀 성질·이용사례 조사", semester: "1-1", category: "공학계열" },
+                { original: "1학년 1학기 세특(과탐실)", title: "실험실 주의사항 분석 및 과학실 안전 포스터 제작", semester: "1-1", category: "교육계열" },
+                { original: "1학년 1학기 세특(기술가정)", title: "저출산 원인 분석 및 독일 비교 주택구매 지원금 정책 제안", semester: "1-1", category: "사회계열" },
+                { original: "1학년 1학기 세특(체육)", title: "학급 체육부장 리더십 발휘 및 육상 제트런 유연한 턴·배드민턴 서브 피드백", semester: "1-1", category: "예체능계열" },
+                { original: "1학년 1학기 세특(미술)", title: "디지털 드로잉 기법 동물(닭·거북이) 및 음영 초상화 캐릭터 제작", semester: "1-1", category: "예체능계열" },
+                { original: "1학년 행동특성", title: "체육부장 체조 통솔 부상 방지 및 체육한마당 단합 주도", semester: "1-1", category: "교육계열" },
+
+                // 1학년 2학기 (14건)
+                { original: "1학년 2학기 자율활동", title: "사이버 학교폭력 심각성 분석 및 예방 방안 활동지 제시", semester: "1-2", category: "사회계열" },
+                { original: "1학년 2학기 동아리활동", title: "한국사 영화 동아리 적극적 변화 및 분단사 상징성 집중 탐구", semester: "1-2", category: "인문계열" },
+                { original: "1학년 2학기 봉사활동", title: "급식 시간 교내 질서 도움 봉사활동 (15시간)", semester: "1-2", category: "사회계열" },
+                { original: "1학년 2학기 세특(국어)", title: "이해관계 갈등 상황 상생 대안 모색 및 협상 목표 달성 모둠 활동", semester: "1-2", category: "사회계열" },
+                { original: "1학년 2학기 세특(수학)", title: "명제와 조건의 정의 학습 및 참·거짓 판별 논리적 문제해결 소감문", semester: "1-2", category: "자연계열" },
+                { original: "1학년 2학기 세특(영어)", title: "플라스틱 오염 해결책 조건절 영작 및 운동 효과 O/X·서술형 퀴즈 제작", semester: "1-2", category: "공학계열" },
+                { original: "1학년 2학기 세특(한국사)", title: "북벌론 비판 글쓰기 및 명분 탈피·국익 중심 실리외교 역설", semester: "1-2", category: "인문계열" },
+                { original: "1학년 2학기 세특(통합사회)", title: "건조 스텝 기후 주민 생활 분석 및 혹독한 환경 적 적응 말 캐릭터 제작", semester: "1-2", category: "사회계열" },
+                { original: "1학년 2학기 세특(통합과학)", title: "공유·이온결합 전기전도성 비교 및 찰흙 변형 운동량-질량·속도 유도 실험", semester: "1-2", category: "자연계열" },
+                { original: "1학년 2학기 세특(과탐실)", title: "자유낙하 운동 실험 참여 및 중력 가속도 데이터 측정", semester: "1-2", category: "자연계열" },
+                { original: "1학년 2학기 세특(기술가정)", title: "목공 공구 활용 우드 트레이·원목 연필꽂이 제작 및 입체 모델링", semester: "1-2", category: "공학계열" },
+                { original: "1학년 2학기 세특(체육)", title: "킥복싱 원리 접목 전신 회전 하체 중심 탁구 드라이브 스트로크 완성", semester: "1-2", category: "예체능계열" },
+                { original: "1학년 2학기 세특(음악)", title: "음악 기호·박자표 기반 리듬 창작 및 우쿨렐레·칼림바·피아노·드럼 연주", semester: "1-2", category: "예체능계열" },
+                { original: "1학년 행동특성", title: "사교적 성품과 친화력으로 급우 관계 형성 및 성실한 과제 완수 태도", semester: "1-2", category: "기타" },
+
+                // 2학년 1학기 (24건)
+                { original: "2학년 1학기 자율활동", title: "선도 차장 임명 및 교칙 준수 캠페인·교내 순찰 비행 관리", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 자율활동", title: "반죽 글루텐 형성 조건 가설 검증(과도 혼합 시 탄성·신장성 약화 확인)", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 동아리활동", title: "요리동아리 딸기 케이크 시트 질감·크림 농도 조절 및 제과 실습 주도", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 진로활동", title: "'내 피드가 나를 말해준다' 콘텐츠 분석(운동·음식·카페 융합 파티시에 진로 확립)", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 진로활동", title: "음악·영상 콘텐츠 제작 탐색 및 개인 녹음 시도 창의적 계획 수립", semester: "2-1", category: "예체능계열" },
+                { original: "2학년 1학기 진로활동", title: "'제빵은 과학이다' 독서: 적갈색 설탕 열 반응 과학적 해석 및 케이크 틀 부피 수학 계산", semester: "2-1", category: "자연계열" },
+                { original: "2학년 1학기 봉사활동", title: "급식 질서 도우미 봉사활동 1차 (20시간)", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 봉사활동", title: "교내 흡연 및 비행 예방 순찰 봉사활동 (20시간)", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 세특(문학)", title: "고려가요 '가시리' 이별의 정한 공감 및 후렴구 정치적 기능 심층 분석", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(문학)", title: "'소설가 구보 씨의 일일' 지식인 내면 분석 및 작은 실천 권유 편지글 작성", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(수학Ⅰ)", title: "'누가 음료수를 마셨을까' 지수함수 모델링 추론 및 끈기 있는 오답 극복", semester: "2-1", category: "자연계열" },
+                { original: "2학년 1학기 세특(영어Ⅰ)", title: "'파티시에 셰프란 무엇인가' 시각 이미지 활용 영어 발표 및 필수 자질 설명", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(영어Ⅰ)", title: "사자성어 '무한부성' 좌우명 선정 및 땀과 성취의 가치 영작", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(물리학Ⅰ)", title: "익스텐소그래프 힘-변형 데이터와 훅의 법칙을 적용한 반죽 탄성계수 산출", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 세특(물리학Ⅰ)", title: "점탄성 모델 도입 반죽 저장에너지·복원력·점성 손실률 정량 산출", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 세특(화학Ⅰ)", title: "세포 호흡 ATP 화학 에너지 전환 및 스포츠 보충제 기전 탐색", semester: "2-1", category: "의약계열" },
+                { original: "2학년 1학기 세특(정보)", title: "아스키·UTF-8 인코딩 비교 및 허프먼 코딩 압축 알고리즘 구현", semester: "2-1", category: "공학계열" },
+                { original: "2학년 1학기 세특(정보)", title: "하루 식단 열량 분석 프로젝트 및 이상치 제거를 통한 데이터 신뢰도 확보", semester: "2-1", category: "자연계열" },
+                { original: "2학년 1학기 세특(일본어Ⅰ)", title: "일본어 가나 사물 연상 학습 및 오니기리 유래 조사·애니메이션 맛집 홍보물 제작", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(문학과매체)", title: "영화 '동주' 내면적 성찰 분석 및 '별 헤는 밤' 추천 글 작성", semester: "2-1", category: "인문계열" },
+                { original: "2학년 1학기 세특(문학과매체)", title: "제과제빵 직업 탐색 카드뉴스 기획 및 인내의 가치 감성적 전달", semester: "2-1", category: "사회계열" },
+                { original: "2학년 1학기 세특(스포츠생활)", title: "왕복오래달리기 호흡·보폭 리듬 조절 및 플로어컬링 일관된 힘 조절", semester: "2-1", category: "예체능계열" },
+                { original: "2학년 1학기 세특(미술창작)", title: "점토 미니어처 입체 창작(분홍 코끼리, 노란 닭, 캐릭터 빵 조형물)", semester: "2-1", category: "예체능계열" },
+                { original: "2학년 행동특성", title: "예의 바른 태도 및 교내 축제 동아리 제과 부스 총괄 운영(재료·가격·고객 관리)", semester: "2-1", category: "사회계열" },
+
+                // 2학년 2학기 (18건)
+                { original: "2학년 2학기 자율활동", title: "글루텐 형성 단계 이해 기반 반죽 안정화 및 호화 과정 심화 탐구 의지", semester: "2-2", category: "공학계열" },
+                { original: "2학년 2학기 동아리활동", title: "마들렌·쿠키 재료 계량 및 굽기 시간 세심 관찰, 실패 원인 분석 개선", semester: "2-2", category: "공학계열" },
+                { original: "2학년 2학기 진로활동", title: "기존 운동 체력을 베이킹 실무 체력으로 승화하는 융합적 진로 확신", semester: "2-2", category: "예체능계열" },
+                { original: "2학년 2학기 봉사활동", title: "급식 질서 도우미 봉사활동 2차 (20시간, 누계 60시간 달성)", semester: "2-2", category: "사회계열" },
+                { original: "2학년 2학기 세특(독서)", title: "'분홍과 파랑 사이' 독서 및 성별 색상 고정관념·사회적 관습 비판", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 세특(수학Ⅱ)", title: "곡선과 x축 사이 넓이의 기하학적 정적분 해석 및 부정적분 관계 증명", semester: "2-2", category: "자연계열" },
+                { original: "2학년 2학기 세특(영어Ⅱ)", title: "'나의 달콤한 휴식' 카페 공간 묘사 영작(관계부사, '휘게' 개념 접목)", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 세특(윤리와사상)", title: "예수의 사랑·책임 윤리 탐구 및 묵자의 겸애사상 기반 이상사회 설계", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 세특(화학Ⅰ)", title: "산화-환원 반응 전자의 이동 및 산화제·환원제 구분 활동", semester: "2-2", category: "자연계열" },
+                { original: "2학년 2학기 세특(생명과학Ⅰ)", title: "코르티코스테로이드 항염·면역억제 작용 기전 및 부작용 양면성 분석", semester: "2-2", category: "의약계열" },
+                { original: "2학년 2학기 세특(생명과학Ⅰ)", title: "운동 부상 경험 바탕 혈류 속도 조절 타박상 치료제 창의적 고안", semester: "2-2", category: "의약계열" },
+                { original: "2학년 2학기 세특(정보)", title: "컴퓨팅 주기억장치-처리장치 데이터 처리 원리 및 메모리 용량 성능 분석", semester: "2-2", category: "공학계열" },
+                { original: "2학년 2학기 세특(일본어Ⅰ)", title: "'일본어 심리 상자' 독서 및 현대 '오타쿠' 몰입 문화의 긍정적 재해석", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 세특(진로영어)", title: "제과 브랜드 창립자의 나눔 철학과 양심적 가격 정책 조명 영작", semester: "2-2", category: "사회계열" },
+                { original: "2학년 2학기 세특(진로영어)", title: "디저트 트렌드 대응 및 해외 유학 포부를 담은 미래 직업 로드맵 영작", semester: "2-2", category: "인문계열" },
+                { original: "2학년 2학기 세특(스포츠생활)", title: "관절 협응 배구 언더핸드 서브 및 지면 반력 농구 골밑슛 훈련", semester: "2-2", category: "예체능계열" },
+                { original: "2학년 2학기 세특(음악감상비평)", title: "우쿨렐레 메트로놈 없는 안정적 스트로크 및 강약 조절 연주 완성도", semester: "2-2", category: "예체능계열" },
+                { original: "2학년 행동특성", title: "제과제빵 위생과 절차 준수 및 피드백 수용을 통한 장인정신 발휘", semester: "2-2", category: "기타" },
+
+                // 3학년 1학기 (22건)
+                { original: "3학년 1학기 자율활동", title: "개인정보보호 및 스마트폰 과의존 예방 자율적 미디어 시간 통제", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 자율활동", title: "성폭력 예방교육 경청 및 디지털 성범죄·데이트폭력 예방 성평등 문화 조성", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 동아리활동", title: "요리동아리 회장 역임: 사전 조리법 브리핑 및 돌발상황 대처", semester: "3-1", category: "교육계열" },
+                { original: "3학년 1학기 동아리활동", title: "동아리 안전·위생 선도 및 체계적 뒷정리 분담 환경 구축", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 진로활동", title: "'퍼펙트 크림&디저트' 독서: 유지방 함량별 크림 조직성 분석 및 버터크림 역사 탐구", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 진로활동", title: "AI 추천 시스템과 휴리스틱·제한된 합리성 이론 기반 제과 마케팅 설문조사 분석", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 진로활동", title: "제과제빵 특화 개인 맞춤형 AI 추천 및 알고리즘 윤리·편향성 비판 고찰", semester: "3-1", category: "공학계열" },
+                { original: "3학년 1학기 세특(화법과작문)", title: "제과제빵과 모의면접 구조화(성실과 배움, 새벽 작업과 트렌드 학습)", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 세특(화법과작문)", title: "현대 디저트 소비 트렌드(가치소비, 건강, 경험) 설명문 작성", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 세특(확률과통계)", title: "빵 반죽 평균 발효 시간 분석: 표본 40개 표본평균·표본표준편차 산출", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 세특(확률과통계)", title: "모평균 95% 신뢰구간 공식 적용을 통한 실제 반죽 발효시간 구간 추정", semester: "3-1", category: "공학계열" },
+                { original: "3학년 1학기 세특(영어독해)", title: "편의점 디저트 시장의 급성장 요인 및 소셜 미디어 영향 영자 기사 보도", semester: "3-1", category: "사회계열" },
+                { original: "3학년 1학기 세특(생활과윤리)", title: "베이커리 잔여 식품 처리 도덕적 딜레마 분석 및 아리스토텔레스 중용 실천안", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 세특(보건)", title: "대마초 합법화 국가 비교 및 한국 형법 속인주의 원칙 인포그래픽 제작", semester: "3-1", category: "의약계열" },
+                { original: "3학년 1학기 세특(보건)", title: "소화기계 건강 식습관 및 식중독 예방, 심폐소생술·AED 응급 처치 실습", semester: "3-1", category: "의약계열" },
+                { original: "3학년 1학기 세특(한문Ⅰ)", title: "신문 활용 생활 속 한자어 해독 및 한자성어 단문 짓기 응용", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 세특(현대문학)", title: "작품 문체 분석 및 비경쟁 독서토론을 통한 사회적 문제 비판적 고찰", semester: "3-1", category: "인문계열" },
+                { original: "3학년 1학기 세특(생명과학Ⅱ)", title: "CRISPR-Cas9 유전자 가위 원리 분석 및 효모 향미 합성 대사경로 강화 설계", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 세특(생명과학Ⅱ)", title: "효모 알코올 발효 및 르방 젖산균 글루텐 보존 원리 발표, 생명윤리 성찰", semester: "3-1", category: "자연계열" },
+                { original: "3학년 1학기 세특(생활과과학)", title: "천식 치료 패러다임 분석 및 AI 활용 선제적 관리 모델 제안(개인정보 윤리)", semester: "3-1", category: "의약계열" },
+                { original: "3학년 1학기 세특(생활과과학)", title: "피겨 각운동량 보존 법칙 및 베이킹 믹서 마찰열에 따른 글루텐 형성 분석", semester: "3-1", category: "공학계열" },
+                { original: "3학년 1학기 세특(운동과건강)", title: "밸런스보드 평형성 요령 공유 및 제자리멀리뛰기 피드백 협력 성장", semester: "3-1", category: "예체능계열" }
+            ]
+        };
+
+        const tabs = document.querySelectorAll('.tab-btn');
+        const contents = document.querySelectorAll('.tab-content');
+        let network1 = null, network2 = null;
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const targetId = tab.dataset.target;
+                const targetContent = document.getElementById(targetId);
+                targetContent.classList.add('active');
+
+                if(targetId === 'tab-graph') {
+                    if (!network1) {
+                        initNetwork1();
+                    } else {
+                        setTimeout(() => { network1.redraw(); network1.fit(); }, 50);
+                    }
+                }
+                if(targetId === 'tab-tree') {
+                    if (!network2) {
+                        initNetwork2();
+                    } else {
+                        setTimeout(() => { network2.redraw(); network2.fit(); }, 50);
+                    }
+                }
+                if(targetId === 'tab-reclass') {
+                    setTimeout(drawMappingConnections, 60);
+                }
+            });
+        });
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline-render');
+            let html = '';
+            studentData.timeline.forEach(gradeObj => {
+                html += `<div class="grade-col">
+                            <div class="grade-header">${gradeObj.grade} 전수 활동 기록</div>
+                            <div class="semester-row">`;
+                gradeObj.semesters.forEach(sem => {
+                    html += `<div class="semester-col">
+                                <div class="semester-title">${sem.term} (${sem.activities.length}건)</div>`;
+                    sem.activities.forEach(act => {
+                        html += `<div class="act-card">
+                                    <div class="tag-wrap" style="margin-bottom:8px;">
+                                        <span class="tag" style="background:var(--primary-color); color:var(--white); border:none;">${act.type}</span>
+                                        <span class="tag">${act.semester}</span>
+                                    </div>
+                                    <div class="act-title">${act.title}</div>
+                                 </div>`;
+                    });
+                    html += `</div>`;
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderStory() {
+            const container = document.getElementById('story-render');
+            let html = '';
+            studentData.story.forEach(s => {
+                html += `<div class="story-box">
+                            <div class="story-header">
+                                <div class="story-title">${s.title}</div>
+                                <div class="tag-wrap"><span class="tag" style="background:var(--primary-light); color:#fff; border:none;">${s.type}</span></div>
+                            </div>
+                            <div class="story-ai">${s.interpretation}</div>
+                            <div class="story-flow">`;
+                s.steps.forEach((step, idx) => {
+                    html += `<div class="story-node">
+                                <div>
+                                    <span class="time">${step.time} · ${step.detail}</span>
+                                    <div class="act-title" style="margin:0; font-size:14px;">${step.title}</div>
+                                </div>
+                             </div>`;
+                    if(idx < s.steps.length - 1) {
+                        html += `<div class="story-arrow">➔</div>`;
+                    }
+                });
+                html += `</div></div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderEvidenceAndWiki() {
+            const evContainer = document.getElementById('evidence-render');
+            let evHtml = '';
+            studentData.evidence.forEach(ev => {
+                evHtml += `<div class="evidence-card">
+                            <div>
+                                <div class="tag-wrap" style="margin-bottom:12px;">
+                                    <span class="tag" style="background:var(--primary-color); color:var(--white); border:none; font-size:12px;">${ev.type}</span>
+                                    <span class="tag" style="font-size:12px;">${ev.semester}</span>
+                                </div>
+                                <h4>${ev.title}</h4>
+                            </div>
+                            <div class="evidence-text">"${ev.text}"</div>
+                           </div>`;
+            });
+            evContainer.innerHTML = evHtml;
+
+            const wContainer = document.getElementById('wiki-render');
+            let wHtml = '';
+            studentData.wiki.forEach(w => {
+                wHtml += `<div class="evidence-card" style="padding:22px; justify-content:flex-start;">
+                            <h4 style="margin-bottom:10px; font-size:16px; color:var(--primary-color); border-bottom:1px dashed var(--secondary-color); padding-bottom:6px;">${w.term}</h4>
+                            <div style="font-size:13.5px; color:var(--text-dark); line-height:1.7;">${w.desc}</div>
+                          </div>`;
+            });
+            wContainer.innerHTML = wHtml;
+        }
+
+        function renderClassification() {
+            const leftGroups = {};
+            const rightGroups = {};
+            const categories = ["인문계열", "사회계열", "교육계열", "자연계열", "공학계열", "의약계열", "예체능계열", "기타"];
+            categories.forEach(c => rightGroups[c] = []);
+
+            studentData.classification.forEach((item, index) => {
+                const id = `map-item-${index}`;
+                item._id = id; 
+                
+                if(!leftGroups[item.original]) leftGroups[item.original] = [];
+                leftGroups[item.original].push(item);
+                
+                let cat = item.category;
+                if(!cat.includes("계열") && cat !== "기타") cat += "계열";
+                if(!rightGroups[cat]) rightGroups[cat] = [];
+                rightGroups[cat].push(item);
+            });
+
+            let leftHtml = '';
+            Object.keys(leftGroups).forEach(groupName => {
+                leftHtml += `<div class="map-group"><div class="map-group-title">${groupName}</div>`;
+                leftGroups[groupName].forEach(item => {
+                    leftHtml += `<div class="map-item left-item" id="left-${item._id}" data-target="right-${item._id}">
+                                    ${item.title} <span class="time-tag">${item.semester}</span>
+                                 </div>`;
+                });
+                leftHtml += `</div>`;
+            });
+            document.getElementById('map-left').innerHTML = leftHtml;
+
+            let rightHtml = '';
+            categories.forEach(groupName => {
+                if(rightGroups[groupName] && rightGroups[groupName].length > 0) {
+                    rightHtml += `<div class="map-group"><div class="map-group-title" style="border-color:var(--primary-color); color:var(--primary-color);">${groupName} (${rightGroups[groupName].length}건)</div>`;
+                    rightGroups[groupName].forEach(item => {
+                        rightHtml += `<div class="map-item right-item" id="right-${item._id}">
+                                        ${item.title} <span class="time-tag">${item.semester}</span>
+                                     </div>`;
+                    });
+                    rightHtml += `</div>`;
+                }
+            });
+            document.getElementById('map-right').innerHTML = rightHtml;
+
+            // 활동 분류 인쇄 전용 엑셀(Table) 표 렌더링
+            let printHtml = '<table class="print-reclass-table">';
+            printHtml += '<thead><tr><th>계열</th><th>시기 및 기재 항목</th><th>활동 요약</th></tr></thead><tbody>';
+            
+            categories.forEach(catGroup => {
+                let items = studentData.classification.filter(item => {
+                    let c = item.category;
+                    if(!c.includes("계열") && c !== "기타") c += "계열";
+                    return c === catGroup;
+                });
+                
+                if(items.length > 0) {
+                    items.sort((a, b) => a.semester.localeCompare(b.semester));
+                    items.forEach((item, idx) => {
+                        printHtml += `<tr>`;
+                        if(idx === 0) {
+                            printHtml += `<td rowspan="${items.length}" style="text-align:center; font-weight:bold; color:var(--primary-color); vertical-align:middle; background:#FAF7F2;">${catGroup}</td>`;
+                        }
+                        printHtml += `<td><span class="time-tag-print">${item.semester}</span> ${item.original}</td>
+                                      <td><strong>${item.title}</strong></td>
+                                    </tr>`;
+                    });
+                }
+            });
+            printHtml += '</tbody></table>';
+            
+            let tabReclass = document.getElementById('tab-reclass');
+            let printDiv = document.getElementById('print-reclass-wrap');
+            if(!printDiv) {
+                printDiv = document.createElement('div');
+                printDiv.id = 'print-reclass-wrap';
+                tabReclass.appendChild(printDiv);
+            }
+            printDiv.innerHTML = printHtml;
+        }
+
+        function drawMappingConnections() {
+            if(window.innerWidth <= 1024) return; // 모바일/태블릿 환경에서는 선을 그리지 않음
+
+            const svg = document.getElementById('mapping-svg');
+            const wrap = document.querySelector('.mapping-container');
+            
+            svg.style.width = '100%';
+            svg.style.height = wrap.scrollHeight + 'px';
+            svg.innerHTML = ''; 
+
+            const svgRect = svg.getBoundingClientRect();
+            const leftItems = document.querySelectorAll('.left-item');
+            
+            leftItems.forEach(leftNode => {
+                const targetId = leftNode.dataset.target;
+                const rightNode = document.getElementById(targetId);
+                
+                if (rightNode) {
+                    const lRect = leftNode.getBoundingClientRect();
+                    const rRect = rightNode.getBoundingClientRect();
+
+                    const startX = lRect.right - svgRect.left;
+                    const startY = lRect.top + (lRect.height / 2) - svgRect.top;
+                    const endX = rRect.left - svgRect.left;
+                    const endY = rRect.top + (rRect.height / 2) - svgRect.top;
+
+                    const controlPointX = (startX + endX) / 2;
+                    
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    path.setAttribute('d', `M ${startX} ${startY} C ${controlPointX} ${startY}, ${controlPointX} ${endY}, ${endX} ${endY}`);
+                    path.setAttribute('stroke', '#E6DDD6');
+                    path.setAttribute('stroke-width', '1.5');
+                    path.setAttribute('fill', 'none');
+                    path.style.transition = '0.2s';
+                    
+                    svg.appendChild(path);
+
+                    leftNode.addEventListener('mouseenter', () => highlightPath(path, rightNode));
+                    leftNode.addEventListener('mouseleave', () => resetPath(path, rightNode));
+                    rightNode.addEventListener('mouseenter', () => highlightPath(path, leftNode));
+                    rightNode.addEventListener('mouseleave', () => resetPath(path, leftNode));
+                }
+            });
+        }
+
+        function highlightPath(path, relatedNode) {
+            path.setAttribute('stroke', '#8C6A50');
+            path.setAttribute('stroke-width', '3');
+            relatedNode.classList.add('hovered');
+            path.parentNode.appendChild(path);
+        }
+        function resetPath(path, relatedNode) {
+            path.setAttribute('stroke', '#E6DDD6');
+            path.setAttribute('stroke-width', '1.5');
+            relatedNode.classList.remove('hovered');
+        }
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('tab-reclass').classList.contains('active')) {
+                drawMappingConnections();
+            }
+            if (network1 && document.getElementById('tab-graph').classList.contains('active')) {
+                network1.fit();
+            }
+            if (network2 && document.getElementById('tab-tree').classList.contains('active')) {
+                network2.fit();
+            }
+        });
+
+        const groupStyles = {
+            student: { color: { background: '#8C6A50', border: '#70543F' }, font: { color: '#FFFFFF', size: 17 } },
+            interest: { color: { background: '#F9E79F', border: '#D4AC0D' }, font: { color: '#332B25', size: 13 } },
+            activity: { color: { background: '#85C1E9', border: '#2980B9' }, font: { color: '#1B2631', size: 13 } },
+            competence: { color: { background: '#82E0AA', border: '#27AE60' }, font: { color: '#145A32', size: 13.5 } },
+            concept: { color: { background: '#D7BDE2', border: '#884EA0' }, font: { color: '#4A235A', size: 13 } },
+            lesson: { color: { background: '#F8C471', border: '#D35400' }, font: { color: '#6E2C00', size: 13 } }
+        };
+
+        const defaultNodeStyle = {
+            shape: 'box', margin: 12, borderWidth: 2,
+            font: { face: 'Pretendard', multi: true, bold: true },
+            shadow: { enabled: true, color: 'rgba(0,0,0,0.08)', size: 8, x: 2, y: 3 }
+        };
+
+        function initNetwork1() {
+            const container1 = document.getElementById('network-container');
+            const nodes1 = new vis.DataSet(studentData.graph.nodes.map(n => ({
+                ...n, ...defaultNodeStyle, 
+                ...(groupStyles[n.group] || { color: { background: '#F4EFEB', border: '#D4C3B3'} })
+            })));
+            
+            const edges1 = new vis.DataSet(studentData.graph.edges.map(e => ({
+                ...e,
+                color: e.dashes ? '#BCAAA4' : '#8C6A50',
+                width: e.dashes ? 1.2 : 3.0,
+                smooth: { type: 'continuous' }
+            })));
+
+            const options1 = {
+                interaction: { hover: true, tooltipDelay: 150 },
+                physics: {
+                    stabilization: { enabled: true, iterations: 150, updateInterval: 25 },
+                    barnesHut: {
+                        gravitationalConstant: -15000,
+                        centralGravity: 0.4,
+                        springLength: 150,
+                        springConstant: 0.05,
+                        damping: 0.09,
+                        avoidOverlap: 0.15
+                    }
+                }
+            };
+            network1 = new vis.Network(container1, {nodes: nodes1, edges: edges1}, options1);
+            
+            network1.on("click", function (params) {
+                if (params.nodes.length > 0) {
+                    const selectedNode = params.nodes[0];
+                    const connectedNodes = network1.getConnectedNodes(selectedNode);
+                    connectedNodes.push(selectedNode);
+
+                    const allNodes = nodes1.get();
+                    nodes1.update(allNodes.map(node => ({
+                        id: node.id,
+                        opacity: connectedNodes.includes(node.id) ? 1 : 0.12
+                    })));
+                    
+                    const allEdges = edges1.get();
+                    edges1.update(allEdges.map(edge => ({
+                        id: edge.id,
+                        opacity: (edge.from === selectedNode || edge.to === selectedNode) ? 1 : 0.04
+                    })));
+                } else {
+                    nodes1.update(nodes1.get().map(node => ({ id: node.id, opacity: 1 })));
+                    edges1.update(edges1.get().map(edge => ({ id: edge.id, opacity: 1 })));
+                }
+            });
+            
+            network1.once("stabilizationIterationsDone", function() {
+                network1.fit({ animation: { duration: 500, easingFunction: "easeOutQuart" } });
+            });
+        }
+
+        function initNetwork2() {
+            const container2 = document.getElementById('tree-container');
+            const nodes2 = new vis.DataSet(studentData.competenceTree.nodes.map(n => {
+                let bg = n.level === 0 ? '#8C6A50' : (n.level === 1 ? '#D4C3B3' : '#FDFBF7');
+                let bc = n.level === 0 ? '#70543F' : (n.level === 1 ? '#A8866C' : '#E6DDD6');
+                let fc = n.level === 0 ? '#FFFFFF' : (n.level === 1 ? '#332B25' : '#4A3B32');
+                return {...n, ...defaultNodeStyle, color: {background: bg, border: bc}, font: {color: fc, size: n.level === 0 ? 16 : (n.level === 1 ? 14 : 12.5)}};
+            }));
+            const edges2 = new vis.DataSet(studentData.competenceTree.edges);
+            const options2 = {
+                layout: { 
+                    hierarchical: { 
+                        direction: "LR", 
+                        sortMethod: "directed", 
+                        levelSeparation: 320, 
+                        nodeSpacing: 80,
+                        parentCentralization: true,
+                        blockShifting: true,
+                        edgeMinimization: true
+                    } 
+                },
+                edges: { smooth: { type: "cubicBezier", forceDirection: "horizontal" }, color: '#C8B7A6', width: 2 },
+                physics: false,
+                interaction: { dragNodes: false, zoomView: true, dragView: true }
+            };
+            network2 = new vis.Network(container2, {nodes: nodes2, edges: edges2}, options2);
+            
+            setTimeout(() => {
+                network2.redraw();
+                network2.fit({ animation: { duration: 500, easingFunction: "easeOutQuart" } });
+            }, 100);
+        }
+
+        window.onload = () => {
+            renderTimeline();
+            renderStory();
+            renderEvidenceAndWiki();
+            renderClassification();
+            initNetwork1();
+        };
+    </script>
+</body>
+</html>
