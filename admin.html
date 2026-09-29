@@ -11,7 +11,7 @@
     <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md relative">
         <a href="index.html" class="absolute top-4 right-4 text-sm text-blue-500 hover:underline">학생 페이지로 이동</a>
 
-        <h1 class="text-2xl font-bold mb-6 text-gray-800">관리자 페이지 (GitHub 자동 업로드)</h1>
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">관리자 페이지 (다중 파일 업로드 지원)</h1>
         
         <!-- 설정 섹션 -->
         <div class="mb-8 p-4 bg-gray-50 rounded-lg border">
@@ -38,12 +38,12 @@
         <div class="mb-6">
             <h2 class="text-lg font-semibold mb-3">파일 업로드 및 학번 지정</h2>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700">학번</label>
+                <label class="block text-sm font-medium text-gray-700">공통 학번 지정 (선택한 파일 전체에 적용)</label>
                 <input type="text" id="studentIdInput" class="mt-1 w-full px-3 py-2 border rounded-md" placeholder="예: 3514">
             </div>
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700">HTML 파일 선택</label>
-                <input type="file" id="fileInput" accept=".html" class="mt-1 w-full">
+                <label class="block text-sm font-medium text-gray-700">HTML 파일 선택 (여러 개 선택 가능)</label>
+                <input type="file" id="fileInput" accept=".html" multiple class="mt-1 w-full">
             </div>
             
             <button id="uploadBtn" onclick="uploadFile()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-300">
@@ -52,13 +52,12 @@
         </div>
 
         <!-- 로그 표시 -->
-        <div id="logArea" class="mt-4 p-3 bg-gray-900 text-green-400 text-sm font-mono rounded h-32 overflow-y-auto hidden">
+        <div id="logArea" class="mt-4 p-3 bg-gray-900 text-green-400 text-sm font-mono rounded h-40 overflow-y-auto hidden">
         </div>
 
     </div>
 
     <script>
-        // 초기 설정 불러오기
         window.onload = () => {
             document.getElementById('ghOwner').value = localStorage.getItem('ghOwner') || '';
             document.getElementById('ghRepo').value = localStorage.getItem('ghRepo') || '';
@@ -79,7 +78,6 @@
             logArea.scrollTop = logArea.scrollHeight;
         }
 
-        // 텍스트를 Base64로 인코딩 (유니코드 대응)
         function utf8_to_b64(str) {
             return window.btoa(unescape(encodeURIComponent(str)));
         }
@@ -98,16 +96,23 @@
             if (!res.ok) throw new Error("mapping.json 가져오기 실패");
             
             const data = await res.json();
-            // Base64 디코딩 후 JSON 파싱
-            const content = JSON.parse(decodeURIComponent(escape(window.atob(data.content))));
-            return { content, sha: data.sha };
+            try {
+                // 에러 발생 원인 해결: 손상된 JSON 포맷을 방어
+                const decodedStr = decodeURIComponent(escape(window.atob(data.content)));
+                const content = JSON.parse(decodedStr);
+                // content가 배열이 아니면 빈 배열로 초기화
+                return { content: Array.isArray(content) ? content : [], sha: data.sha };
+            } catch (e) {
+                console.warn("mapping.json 파싱 실패, 빈 배열로 덮어씁니다.", e);
+                return { content: [], sha: data.sha };
+            }
         }
 
         async function updateMappingJson(owner, repo, token, mappingData, sha) {
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/mapping.json`;
             const jsonStr = JSON.stringify(mappingData, null, 2);
             const body = {
-                message: "Update mapping.json via Admin",
+                message: "Update mapping.json via Admin (Multi-upload)",
                 content: utf8_to_b64(jsonStr)
             };
             if (sha) body.sha = sha;
@@ -129,9 +134,8 @@
                 const reader = new FileReader();
                 reader.onload = async function(e) {
                     try {
-                        const content = e.target.result.split(',')[1]; // base64 내용만 추출
-                        // 파일 이름 URL 인코딩 이슈 방지를 위해 타임스탬프 등 고유 파일명 생성 권장
-                        const safeFileName = `${Date.now()}_${fileObj.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
+                        const content = e.target.result.split(',')[1];
+                        const safeFileName = `${Date.now()}_${fileObj.name.replace(/[^a-zA-Z0-9.\-_가-힣]/g, '')}`;
                         
                         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${safeFileName}`;
                         const body = {
@@ -149,13 +153,14 @@
                             body: JSON.stringify(body)
                         });
 
-                        if (!res.ok) throw new Error("HTML 파일 업로드 실패");
+                        if (!res.ok) throw new Error(`${fileObj.name} 업로드 실패`);
                         resolve(safeFileName);
                     } catch (error) {
                         reject(error);
                     }
                 };
-                reader.readAsDataURL(fileObj); // Base64로 바로 읽기
+                reader.onerror = () => reject(new Error("파일 읽기 오류"));
+                reader.readAsDataURL(fileObj);
             });
         }
 
@@ -174,41 +179,46 @@
                 alert("학번을 입력해주세요."); return;
             }
             if (fileInput.files.length === 0) {
-                alert("업로드할 HTML 파일을 선택해주세요."); return;
+                alert("업로드할 HTML 파일을 하나 이상 선택해주세요."); return;
             }
 
-            const fileObj = fileInput.files[0];
             uploadBtn.disabled = true;
             uploadBtn.innerText = "처리 중...";
             document.getElementById('logArea').innerHTML = '';
 
             try {
-                // 1. HTML 파일 업로드
-                logMessage(`${fileObj.name} 파일을 GitHub에 업로드 중...`);
-                const uploadedFileName = await uploadHtmlFileToGithub(owner, repo, token, fileObj);
-                logMessage(`HTML 파일 업로드 성공! (저장된 이름: ${uploadedFileName})`);
-
-                // 2. mapping.json 가져오기
+                // 1. 기존 mapping.json 가져오기
                 logMessage(`기존 mapping.json 불러오는 중...`);
                 const mappingInfo = await getMappingJson(owner, repo, token);
                 let mappingData = mappingInfo.content;
                 logMessage(`기존 매핑 데이터 로드 완료 (${mappingData.length}건)`);
 
-                // 3. 새로운 매핑 정보 추가
-                mappingData.push({
-                    studentId: studentId,
-                    filename: uploadedFileName,
-                    originalName: fileObj.name,
-                    uploadTime: new Date().toISOString()
-                });
-
-                // 4. mapping.json 업데이트
-                logMessage(`mapping.json 업데이트(커밋) 중...`);
-                await updateMappingJson(owner, repo, token, mappingData, mappingInfo.sha);
-                logMessage(`✅ 모든 작업 완료! 이제 학생 페이지에서 검색 가능합니다.`);
+                // 2. 여러 파일 순차적 업로드
+                const files = fileInput.files;
+                logMessage(`총 ${files.length}개의 파일 업로드 시작...`);
                 
-                alert("업로드 및 매핑이 완료되었습니다.");
+                for (let i = 0; i < files.length; i++) {
+                    const fileObj = files[i];
+                    logMessage(`[${i+1}/${files.length}] ${fileObj.name} 업로드 중...`);
+                    const uploadedFileName = await uploadHtmlFileToGithub(owner, repo, token, fileObj);
+                    
+                    mappingData.push({
+                        studentId: studentId,
+                        filename: uploadedFileName,
+                        originalName: fileObj.name,
+                        uploadTime: new Date().toISOString()
+                    });
+                }
+
+                // 3. mapping.json 업데이트
+                logMessage(`mapping.json 업데이트 중...`);
+                await updateMappingJson(owner, repo, token, mappingData, mappingInfo.sha);
+                
+                logMessage(`✅ 모든 작업 완료! 총 ${files.length}개의 파일이 학번 [${studentId}]에 매핑되었습니다.`);
+                alert(`${files.length}개의 파일 업로드 및 매핑이 완료되었습니다.`);
+                
                 fileInput.value = ''; // 폼 초기화
+                document.getElementById('studentIdInput').value = '';
 
             } catch (error) {
                 console.error(error);
