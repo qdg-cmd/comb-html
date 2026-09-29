@@ -9,7 +9,7 @@
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
     <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md relative">
-        <a href="admin.html" class="absolute top-4 right-4 text-xs text-gray-400 hover:text-gray-600">관리자</a>
+        <button onclick="checkAdminPassword()" class="absolute top-4 right-4 text-xs text-gray-400 hover:text-gray-600">관리자</button>
         
         <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">내 파일 찾기</h1>
         
@@ -35,6 +35,15 @@
 
     <script>
         let mappingData = [];
+
+        function checkAdminPassword() {
+            const pwd = prompt("관리자 비밀번호를 입력하세요:");
+            if (pwd === "admin") {
+                window.location.href = "admin.html";
+            } else if (pwd !== null) {
+                alert("비밀번호가 틀렸습니다.");
+            }
+        }
 
         window.onload = async () => {
             try {
